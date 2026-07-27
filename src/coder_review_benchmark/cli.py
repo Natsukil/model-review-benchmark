@@ -54,7 +54,7 @@ def _parser() -> argparse.ArgumentParser:
 
 def _doctor(profile_name: str = "balanced") -> None:
     checks: dict[str, object] = {}
-    for model_id in ("qwen2.5-coder-7b", "qwen3-coder-30b", "judge"):
+    for model_id in ("qwen2.5-coder-7b", "qwen3-coder-30b", "qwen3-coder-next-80b", "judge"):
         try:
             profile = get_model_profile(model_id)
             checks[model_id] = {
@@ -191,10 +191,13 @@ def _run(suite: str, model_id: str, profile_name: str, limit: int | None, max_tu
         "evaluation_method": "official_image_tests_no_uploads" if suite == "agentic" else None,
         "evaluation_version": "model-review-v2" if suite in {"martian", "swe_review"} else ("official_image_tests_v1" if suite == "agentic" else "legacy"),
         "context_policy": context_policy if suite in {"martian", "swe_review"} else None,
+        "max_input_tokens": 28672 if suite in {"martian", "swe_review"} and context_policy == "common-32k" else None,
+        "output_reserved_tokens": 4096 if suite in {"martian", "swe_review"} else None,
+        "structured_output": profile.structured_output if suite in {"martian", "swe_review"} else None,
         "prompt_version": "model-only-v2" if suite in {"martian", "swe_review"} else None,
         "prompt_sha256": prompt_sha256(review_adapter) if suite in {"martian", "swe_review"} else None,
         "dataset_manifest_sha256": _file_sha256(dataset_manifest),
-        "sampling": {"temperature": 0, "top_p": None, "seed": None},
+        "sampling": {"temperature": profile.temperature, "top_p": profile.top_p, "seed": profile.seed, "stream": profile.stream, "repeat_penalty": profile.repeat_penalty, "presence_penalty": profile.presence_penalty, "frequency_penalty": profile.frequency_penalty},
         "model_artifact": {"filename": os.getenv("CBM_MODEL_ARTIFACT_FILENAME"), "sha256": os.getenv("CBM_MODEL_ARTIFACT_SHA256"), "quantization": os.getenv("CBM_MODEL_QUANTIZATION"), "serving_engine": os.getenv("CBM_SERVING_ENGINE"), "serving_engine_version": os.getenv("CBM_SERVING_ENGINE_VERSION"), "chat_template": os.getenv("CBM_CHAT_TEMPLATE")},
         "dataset_profile": profile_name,
         "environment": {"qwen_base_url": profile.base_url, "judge_base_url": judge_profile.base_url if judge_profile else None},

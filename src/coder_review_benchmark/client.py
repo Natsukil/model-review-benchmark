@@ -20,18 +20,33 @@ class ModelClient:
         self,
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None = None,
-        temperature: float = 0,
+        temperature: float | None = None,
         max_tokens: int | None = None,
+        top_p: float | None = None,
+        seed: int | None = None,
+        stream: bool | None = None,
+        repeat_penalty: float | None = None,
+        presence_penalty: float | None = None,
+        frequency_penalty: float | None = None,
+        response_format: dict[str, Any] | None = None,
     ) -> tuple[dict[str, Any], float]:
         body: dict[str, Any] = {
             "model": self.profile.model_name,
             "messages": messages,
-            "temperature": temperature,
+            "temperature": self.profile.temperature if temperature is None else temperature,
+            "top_p": self.profile.top_p if top_p is None else top_p,
+            "seed": self.profile.seed if seed is None else seed,
+            "stream": self.profile.stream if stream is None else stream,
+            "repeat_penalty": self.profile.repeat_penalty if repeat_penalty is None else repeat_penalty,
+            "presence_penalty": self.profile.presence_penalty if presence_penalty is None else presence_penalty,
+            "frequency_penalty": self.profile.frequency_penalty if frequency_penalty is None else frequency_penalty,
             "max_tokens": max_tokens if max_tokens is not None else self.profile.max_output_tokens,
         }
         if tools:
             body["tools"] = tools
             body["tool_choice"] = "auto"
+        if response_format is not None:
+            body["response_format"] = response_format
         headers = {"Content-Type": "application/json"}
         if self.profile.send_auth and self.profile.api_key:
             headers["Authorization"] = f"Bearer {self.profile.api_key}"

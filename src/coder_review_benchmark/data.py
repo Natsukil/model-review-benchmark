@@ -485,9 +485,36 @@ def prepare_swe_v2_profiles(raw_dir: Path | None = None, *, seed: int = 20260724
         _write_selection(out / "swe_review.jsonl", selected)
         manifest = {"evaluation_version": "model-review-v2", "profile": profile, "suite": "swe_review", "seed": seed, "max_patch_chars": max_patch_chars if profile.startswith("swe-review-balanced") else None, "selection_policy": policy, **_selection_stats(selected)}
         manifest["expected_count"] = len(selected)
-        (out / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+        selection_hash = _sha256(out / "swe_review.jsonl")
+        manifest["selection_sha256"] = selection_hash
+        manifest_path = out / "manifest.json"
+        manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        (out / "manifest.sha256").write_text(_sha256(manifest_path) + "  manifest.json\n", encoding="utf-8")
         outputs[profile] = out
+    outputs.update(prepare_martian_v2_profile(raw_dir=raw_dir, seed=seed))
     return outputs
+
+
+def prepare_martian_v2_profile(raw_dir: Path | None = None, *, seed: int = 20260724) -> dict[str, Path]:
+    """Freeze the existing 50-PR offline Martian selection as its own profile."""
+    source = ROOT / "data" / "selections" / "review-hour" / "martian.jsonl"
+    if not source.exists():
+        prepare_review_profile("review-hour", martian_count=50, raw_dir=raw_dir, seed=seed)
+    rows = [json.loads(line) for line in source.read_text(encoding="utf-8").splitlines() if line.strip()]
+    out = ROOT / "data" / "selections" / "martian-offline-50-v1"
+    out.mkdir(parents=True, exist_ok=True)
+    target = out / "martian.jsonl"
+    target.write_text("\n".join(json.dumps(row, ensure_ascii=False) for row in rows) + "\n", encoding="utf-8")
+    records = [row.get("record", row) for row in rows]
+    repos: dict[str, int] = {}
+    for record in records:
+        repo = _martian_repo(record)
+        repos[repo] = repos.get(repo, 0) + 1
+    manifest = {"evaluation_version": "model-review-v2", "profile": "martian-offline-50-v1", "suite": "martian", "seed": seed, "selection_policy": "frozen_offline_golden_50_prs", "expected_count": len(rows), "selected_count": len(rows), "golden_comment_count": sum(len(r.get("comments") or []) for r in records), "repo_counts": repos, "selection_sha256": _sha256(target), "source_selection_sha256": _sha256(source)}
+    manifest_path = out / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    (out / "manifest.sha256").write_text(_sha256(manifest_path) + "  manifest.json\n", encoding="utf-8")
+    return {"martian-offline-50-v1": out}
 
 
 def validate_selection(profile: str, suite: str = "swe_review", *, root: Path | None = None) -> dict[str, Any]:
@@ -503,6 +530,10 @@ def validate_selection(profile: str, suite: str = "swe_review", *, root: Path | 
     if any(not isinstance(record, dict) for record in records):
         errors.append("record must be an object")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest_sha_path = directory / "manifest.sha256"
+    if manifest_sha_path.exists():
+        recorded = manifest_sha_path.read_text(encoding="utf-8").split()[0] if manifest_sha_path.read_text(encoding="utf-8").split() else ""
+        if recorded != _sha256(manifest_path): errors.append("manifest SHA-256 mismatch")
     if suite == "swe_review":
         if any(not str(record.get("instance_id", "")) for record in records): errors.append("missing instance_id")
         if any(not str(record.get("model_patch", "")) for record in records): errors.append("empty model_patch")
@@ -514,6 +545,12 @@ def validate_selection(profile: str, suite: str = "swe_review", *, root: Path | 
         for key in ("generator_counts", "resolved_counts", "difficulty_counts"):
             if manifest.get(key) != actual.get(key):
                 errors.append(f"{key} does not match manifest")
+    elif suite == "martian":
+        expected = int(manifest.get("expected_count", len(records)))
+        if len(records) != expected: errors.append(f"count {len(records)} != manifest {expected}")
+        if any(not isinstance(r, dict) or not str(r.get("record", r).get("url", "")) for r in rows): errors.append("missing PR url")
+        if any(not isinstance(r, dict) or not isinstance(r.get("record", r).get("comments"), list) for r in rows): errors.append("missing golden comments")
+        if manifest.get("selection_sha256") != _sha256(selection_path): errors.append("selection SHA-256 mismatch")
     serialized = [json.dumps(r, sort_keys=True, ensure_ascii=False) for r in records]
     if len(serialized) != len(set(serialized)): errors.append("duplicate records")
     result = {"valid": not errors, "profile": profile, "suite": suite, "count": len(records), "unique_instance_ids": len({str(r.get("instance_id", "")) for r in records}), "errors": errors}

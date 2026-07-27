@@ -10,8 +10,8 @@ from .tool_parser import parse_json_object
 
 SWE_DECISIONS = {"approve", "request_changes"}
 DECISION_ALIASES = {"reject": "request_changes"}
-SEVERITIES = {"bug", "security", "performance", "maintainability", "unknown"}
-CATEGORIES = {"correctness", "security", "performance", "testing", "other", "unknown"}
+SEVERITIES = {"low", "medium", "high", "critical"}
+CATEGORIES = {"correctness", "security", "reliability", "performance", "compatibility", "testing", "maintainability", "other"}
 
 
 def score_mcqa(answer: str, gold: str) -> float:

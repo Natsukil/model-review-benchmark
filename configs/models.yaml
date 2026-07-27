@@ -3,27 +3,53 @@ models:
     model_name: ${QWEN25_CODER_7B_MODEL_NAME:-Qwen2.5-Coder-7B-Instruct}
     base_url_env: QWEN25_CODER_7B_BASE_URL
     api_key_env: QWEN25_CODER_7B_API_KEY
+    send_auth: true
     parser: qwen25_text_fallback
     max_output_tokens: 4096
     max_context_tokens: 32768
     max_concurrency: 1
+    temperature: 0.0
+    top_p: 1.0
+    seed: 42
+    stream: false
+    repeat_penalty: 1.0
+    presence_penalty: 0.0
+    frequency_penalty: 0.0
+    structured_output: true
   qwen3-coder-30b:
     model_name: ${QWEN3_CODER_30B_MODEL_NAME:-qwen3-coder-30b-a3b-instruct}
     base_url_env: QWEN3_CODER_30B_BASE_URL
     api_key_env: QWEN3_CODER_30B_API_KEY
-    send_auth: false
+    send_auth: true
     parser: native_tool_calls
-    max_output_tokens: 8192
+    max_output_tokens: 4096
     max_context_tokens: 32768
     max_concurrency: 1
+    temperature: 0.0
+    top_p: 1.0
+    seed: 42
+    stream: false
+    repeat_penalty: 1.0
+    presence_penalty: 0.0
+    frequency_penalty: 0.0
+    structured_output: true
   qwen3-coder-next-80b:
-    model_name: Qwen3-Coder-Next
+    model_name: ${QWEN3_CODER_NEXT_80B_MODEL_NAME:-Qwen3-Coder-Next}
     base_url_env: QWEN3_CODER_NEXT_80B_BASE_URL
     api_key_env: QWEN3_CODER_NEXT_80B_API_KEY
     parser: native_tool_calls
-    max_output_tokens: 8192
-    max_context_tokens: 131072
+    max_output_tokens: 4096
+    max_context_tokens: 32768
     max_concurrency: 1
+    send_auth: true
+    temperature: 0.0
+    top_p: 1.0
+    seed: 42
+    stream: false
+    repeat_penalty: 1.0
+    presence_penalty: 0.0
+    frequency_penalty: 0.0
+    structured_output: true
   judge:
     model_name: ${JUDGE_MODEL_NAME:-independent-review-judge}
     base_url_env: JUDGE_BASE_URL

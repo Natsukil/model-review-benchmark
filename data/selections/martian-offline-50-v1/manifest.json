@@ -1,0 +1,21 @@
+{
+  "evaluation_version": "model-review-v2",
+  "profile": "martian-offline-50-v1",
+  "suite": "martian",
+  "seed": 20260724,
+  "selection_policy": "frozen_offline_golden_50_prs",
+  "expected_count": 50,
+  "selected_count": 50,
+  "golden_comment_count": 136,
+  "repo_counts": {
+    "ai-code-review-evaluation/discourse-graphite": 10,
+    "ai-code-review-evaluation/keycloak-greptile": 1,
+    "ai-code-review-evaluation/sentry-greptile": 4,
+    "calcom/cal.com": 10,
+    "getsentry/sentry": 6,
+    "grafana/grafana": 10,
+    "keycloak/keycloak": 9
+  },
+  "selection_sha256": "8784639abcf6a4f28481a19f1a80f338b2293f280125ffdb6e14ffe01feef148",
+  "source_selection_sha256": "8784639abcf6a4f28481a19f1a80f338b2293f280125ffdb6e14ffe01feef148"
+}

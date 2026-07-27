@@ -24,5 +24,6 @@
     "<15 min fix": 194,
     ">4 hours": 3
   },
-  "expected_count": 500
+  "expected_count": 500,
+  "selection_sha256": "f9117095a5e7b5304ca0311dbd4e408d53805641720016b950b2937898add382"
 }

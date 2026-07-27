@@ -7,5 +7,5 @@ DIFF:
 {{model_patch}}
 
 Return exactly one JSON object with this schema:
-{"decision":"approve" or "request_changes","summary":"string","findings":[{"path":"string","line":1,"severity":"bug|security|performance|maintainability","category":"correctness|security|performance|testing|other","description":"string"}]}
-Use `approve` only when there is no actionable defect. Use `request_changes` when any actionable defect exists. The alias `reject` is not required; if used by a compatible server it is normalized by the evaluator. Do not include tests, gold patches, labels, or any information not present above.
+{"decision":"approve" or "request_changes","summary":"string","findings":[{"path":"string","line":1,"severity":"low|medium|high|critical","category":"correctness|security|reliability|performance|compatibility|testing|maintainability|other","description":"string"}]}
+Use `request_changes` only when the patch does not fully resolve the issue, introduces a regression, or contains a substantive defect. Do not reject for pure style, naming, optional refactoring, missing extra tests, or pre-existing issues. Use `approve` when no such actionable defect is present. The alias `reject` is not required; if used by a compatible server it is normalized by the evaluator. Do not include tests, gold patches, labels, or any information not present above.

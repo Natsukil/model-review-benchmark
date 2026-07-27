@@ -3,7 +3,7 @@
   "profile": "swe-review-official-1384-v1",
   "suite": "swe_review",
   "seed": 20260724,
-  "max_patch_chars": 40000,
+  "max_patch_chars": null,
   "selection_policy": "all_non_empty_candidate_patches_no_instance_dedupe",
   "selected_count": 1384,
   "unique_instance_ids": 500,
@@ -24,5 +24,6 @@
     "<15 min fix": 548,
     ">4 hours": 8
   },
-  "expected_count": 1384
+  "expected_count": 1384,
+  "selection_sha256": "e7ddf36bbc9045feee7b3798d862445f4516950dd711c88db681464c3173c493"
 }

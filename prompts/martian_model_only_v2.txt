@@ -10,5 +10,5 @@ DIFF:
 {{patch}}
 
 Return exactly one JSON object with this schema:
-{"summary":"string","findings":[{"path":"string","line":1,"severity":"bug|security|performance|maintainability","category":"correctness|security|performance|testing|other","description":"string"}]}
-Report correctness issues supported by the supplied title, description, and diff. Do not use gold comments, labels, or judge information.
+{"summary":"string","findings":[{"path":"string","line":1,"severity":"low|medium|high|critical","category":"correctness|security|reliability|performance|compatibility|testing|maintainability|other","description":"string"}]}
+Report only correctness, security, reliability, performance, or compatibility problems introduced or evidenced by the diff. Do not report pure style issues, unsupported guesses, or problems not introduced by this diff. Do not use gold comments, labels, or judge information.

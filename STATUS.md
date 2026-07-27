@@ -7,7 +7,7 @@
 - 已安装项目依赖，Qwen2.5 文本工具调用 fallback、native tool call、路径逃逸保护和 mock agent 链路均已验证。
 - Multi-SWE-bench Mini、SWE-bench Verified、SWE-bench Multilingual 和 CodeReviewQA 的本地数据、选集已清理；所有 `mswebench/*` Docker 镜像也已删除。当前仅保留 review 所需数据。
 - 下载器已支持通过 `HF_ENDPOINT` 使用 Hugging Face 兼容国内镜像。
-- 已实现 Model-only Code Review Benchmark v2：SWE/Martian 独立适配器和版本化 prompt、严格 decision/schema 解析、common-32k 上下文记录、SWE 500/1384 双选集及 `validate-selection`。
+- 已实现 Model-only Code Review Benchmark v2：SWE/Martian 独立适配器和版本化 prompt、严格 decision/schema 解析、28672-token common-32k 上下文记录、SWE 500/1384 与 Martian 50 冻结 profile 及 `validate-selection`。
 
 ## 下次从哪里继续
 
@@ -21,7 +21,7 @@
 
 ## 验证结果
 
-- `python -m pytest -q`：23 passed。
+- `python -m pytest -q`：29 passed。
 - `python -m compileall -q src`：通过。
 - mock OpenAI 服务：客户端、native tool call、SafeWorkspace 和 agent loop：通过。
 - 已清理本地 Agentic/code-fixing 数据及其 Docker 镜像；当前 Docker 中保留的镜像仅为模型服务或其他非 Multi-SWE 基础镜像。

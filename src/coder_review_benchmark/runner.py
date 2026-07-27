@@ -108,10 +108,19 @@ def run_agent_task(
 def run_review_task(client: ModelClient, task: dict[str, Any], *, protocol: str = "swe", context_policy: str = "common-32k", adapter: Any | None = None) -> dict[str, Any]:
     adapter = adapter or (MartianReviewAdapter() if protocol == "martian" else SWEReviewAdapter())
     prepared: ReviewInput = adapter.prepare(task, context_policy)
-    response, elapsed = client.chat(
-        prepared.messages,
-        max_tokens=min(client.profile.max_output_tokens, 2048),
-    )
+    max_output = min(getattr(client.profile, "max_output_tokens", 4096), 4096)
+    response_kwargs = {"max_tokens": max_output}
+    if getattr(client.profile, "structured_output", True):
+        response_kwargs["response_format"] = adapter.response_format
+    try:
+        response, elapsed = client.chat(prepared.messages, **response_kwargs)
+    except TypeError as exc:
+        # Keep lightweight test doubles/backwards-compatible clients usable;
+        # the production ModelClient always accepts response_format.
+        if "response_format" not in str(exc):
+            raise
+        response_kwargs.pop("response_format", None)
+        response, elapsed = client.chat(prepared.messages, **response_kwargs)
     content = ((response.get("choices") or [{}])[0].get("message") or {}).get("content") or ""
     parsed = parse_martian_review(content) if protocol == "martian" else parse_review(content, protocol="swe")
     usage = response.get("usage") if isinstance(response.get("usage"), dict) else {}
@@ -122,6 +131,9 @@ def run_review_task(client: ModelClient, task: dict[str, Any], *, protocol: str 
               "prompt_version": prepared.prompt_version, "prompt_sha256": prepared.prompt_sha256,
               "original_input_chars": prepared.original_input_chars, "final_input_chars": prepared.final_input_chars,
               "truncated": prepared.truncated, "truncation_reason": prepared.truncation_reason,
+              "original_input_tokens": prepared.original_input_tokens, "final_input_tokens": prepared.final_input_tokens,
+              "template_sha256": prepared.template_sha256, "user_content_sha256": prepared.user_content_sha256,
+              "messages_sha256": prepared.messages_sha256,
               "finish_reason": finish_reason}
     for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
         if key in usage:

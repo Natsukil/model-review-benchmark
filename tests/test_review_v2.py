@@ -48,6 +48,7 @@ def test_review_adapters_do_not_leak_gold_fields():
     prepared = SWEReviewAdapter().prepare(task)
     prompt = prepared.messages[-1]["content"]
     assert "Issue text" in prompt and "SECRET_GOLD" not in prompt and "SECRET_TEST" not in prompt
+    assert "SECRET_COMMENT" not in prompt and "resolved" not in prompt
 
     martian = MartianReviewAdapter().prepare({"pr_title": "Title", "pr_body": "Body", "patch": "diff --git a/a b/b\n", "comments": [{"comment": "SECRET"}]})
     assert "Title" in martian.messages[-1]["content"] and "SECRET" not in martian.messages[-1]["content"]

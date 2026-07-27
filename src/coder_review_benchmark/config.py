@@ -48,6 +48,14 @@ class ModelProfile:
     max_context_tokens: int
     max_concurrency: int
     send_auth: bool = True
+    temperature: float = 0.0
+    top_p: float = 1.0
+    seed: int = 42
+    stream: bool = False
+    repeat_penalty: float = 1.0
+    presence_penalty: float = 0.0
+    frequency_penalty: float = 0.0
+    structured_output: bool = True
 
 
 def get_model_profile(model_id: str, path: Path | None = None) -> ModelProfile:
@@ -70,6 +78,14 @@ def get_model_profile(model_id: str, path: Path | None = None) -> ModelProfile:
         max_context_tokens=int(raw.get("max_context_tokens", 32768)),
         max_concurrency=int(raw.get("max_concurrency", 1)),
         send_auth=raw.get("send_auth", True) is not False,
+        temperature=float(raw.get("temperature", 0.0)),
+        top_p=float(raw.get("top_p", 1.0)),
+        seed=int(raw.get("seed", 42)),
+        stream=bool(raw.get("stream", False)),
+        repeat_penalty=float(raw.get("repeat_penalty", 1.0)),
+        presence_penalty=float(raw.get("presence_penalty", 0.0)),
+        frequency_penalty=float(raw.get("frequency_penalty", 0.0)),
+        structured_output=(os.getenv("CBM_STRUCTURED_OUTPUT", "").lower() not in {"0", "false", "no"}) if os.getenv("CBM_STRUCTURED_OUTPUT") is not None else bool(raw.get("structured_output", True)),
     )
 
 
