@@ -1,0 +1,11 @@
+Review the issue and the candidate patch below. Decide whether the patch should be approved.
+
+ISSUE / TASK:
+{{problem_statement}}
+
+DIFF:
+{{model_patch}}
+
+Return exactly one JSON object with this schema:
+{"decision":"approve" or "request_changes","summary":"string","findings":[{"path":"string","line":1,"severity":"bug|security|performance|maintainability","category":"correctness|security|performance|testing|other","description":"string"}]}
+Use `approve` only when there is no actionable defect. Use `request_changes` when any actionable defect exists. The alias `reject` is not required; if used by a compatible server it is normalized by the evaluator. Do not include tests, gold patches, labels, or any information not present above.

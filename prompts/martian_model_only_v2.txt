@@ -1,0 +1,14 @@
+Review this pull request diff and report actionable findings.
+
+PR TITLE:
+{{pr_title}}
+
+PR DESCRIPTION:
+{{pr_body}}
+
+DIFF:
+{{patch}}
+
+Return exactly one JSON object with this schema:
+{"summary":"string","findings":[{"path":"string","line":1,"severity":"bug|security|performance|maintainability","category":"correctness|security|performance|testing|other","description":"string"}]}
+Report correctness issues supported by the supplied title, description, and diff. Do not use gold comments, labels, or judge information.

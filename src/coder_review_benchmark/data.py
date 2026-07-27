@@ -418,3 +418,103 @@ def prepare_review_profile(
         encoding="utf-8",
     )
     return out
+
+
+def _write_selection(path: Path, records: list[dict[str, Any]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(json.dumps({"language": _lang(r), "record": r}, ensure_ascii=False) for r in records) + "\n", encoding="utf-8")
+
+
+def _selection_stats(records: list[dict[str, Any]]) -> dict[str, Any]:
+    generators: dict[str, int] = {}
+    resolved: dict[str, int] = {}
+    difficulty: dict[str, int] = {}
+    for record in records:
+        generator = str(record.get("generator_model", "unknown"))
+        generators[generator] = generators.get(generator, 0) + 1
+        label = str(bool(record.get("resolved"))).lower()
+        resolved[label] = resolved.get(label, 0) + 1
+        level = str(record.get("difficulty", "unknown"))
+        difficulty[level] = difficulty.get(level, 0) + 1
+    ids = [str(r.get("instance_id", "")) for r in records]
+    serialized = [json.dumps(r, sort_keys=True, ensure_ascii=False) for r in records]
+    return {"selected_count": len(records), "unique_instance_ids": len(set(ids)), "duplicate_instance_ids": len(ids) - len(set(ids)), "exact_duplicate_records": len(serialized) - len(set(serialized)), "generator_counts": generators, "resolved_counts": resolved, "difficulty_counts": difficulty}
+
+
+def prepare_swe_v2_profiles(raw_dir: Path | None = None, *, seed: int = 20260724, max_patch_chars: int = 40_000, official_count: int = 1384) -> dict[str, Path]:
+    """Build the two frozen, review-only SWE selections from already downloaded raw data."""
+    raw_dir = raw_dir or ROOT / "data" / "raw"
+    all_records = [r for r in _records(raw_dir / "swe_review") if str(r.get("model_patch") or "")]
+    # The official protocol keeps every non-empty candidate. The balanced set
+    # uses the same source but excludes pathological oversized patches.
+    records = [r for r in all_records if len(str(r.get("model_patch") or "")) <= max_patch_chars]
+    if len(all_records) < official_count:
+        raise RuntimeError(f"need {official_count} non-empty candidate patches, found {len(all_records)}")
+    official = sorted(all_records, key=lambda r: (str(r.get("instance_id", "")), str(r.get("generator_model", "")), json.dumps(r, sort_keys=True, ensure_ascii=False)))[:official_count]
+    by_id: dict[str, list[dict[str, Any]]] = {}
+    for record in records:
+        by_id.setdefault(str(record.get("instance_id", "")), []).append(record)
+    # A single instance can have candidates from multiple generators with
+    # different outcomes. Allocate the unresolved half first, then choose the
+    # remaining resolved instances deterministically.
+    def choose(label: bool, count: int, excluded: set[str]) -> list[dict[str, Any]]:
+        candidates: dict[str, list[dict[str, Any]]] = {}
+        for instance_id, values in by_id.items():
+            if instance_id in excluded:
+                continue
+            matching = [r for r in values if bool(r.get("resolved")) is label]
+            if matching:
+                candidates[instance_id] = matching
+        ordered_values = sorted(candidates.values(), key=lambda values: (len({bool(r.get("resolved")) for r in by_id.get(str(values[0].get("instance_id")), [])}), str(values[0].get("instance_id", ""))))
+        rng = random.Random(seed + (1 if label else 0))
+        exclusive = [values for values in ordered_values if len({bool(r.get("resolved")) for r in by_id.get(str(values[0].get("instance_id")), [])}) == 1]
+        mixed = [values for values in ordered_values if values not in exclusive]
+        rng.shuffle(exclusive); rng.shuffle(mixed)
+        selected_values = (exclusive + mixed)[:count]
+        return [sorted(values, key=lambda r: str(r.get("generator_model", "unknown")))[0] for values in selected_values]
+    unresolved = choose(False, 250, set())
+    used = {str(r.get("instance_id")) for r in unresolved}
+    resolved = choose(True, 250, used)
+    balanced = unresolved + resolved
+    if len(balanced) != 500 or sum(bool(r.get("resolved")) for r in balanced) != 250:
+        raise RuntimeError("cannot construct balanced 500 selection with 250 resolved and 250 unresolved unique instances")
+    base = ROOT / "data" / "selections"
+    outputs: dict[str, Path] = {}
+    for profile, selected, policy in (("swe-review-balanced-500-v1", balanced, "stratified_round_robin_unique_instance_id"), ("swe-review-official-1384-v1", official, "all_non_empty_candidate_patches_no_instance_dedupe")):
+        out = base / profile
+        _write_selection(out / "swe_review.jsonl", selected)
+        manifest = {"evaluation_version": "model-review-v2", "profile": profile, "suite": "swe_review", "seed": seed, "max_patch_chars": max_patch_chars if profile.startswith("swe-review-balanced") else None, "selection_policy": policy, **_selection_stats(selected)}
+        manifest["expected_count"] = len(selected)
+        (out / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+        outputs[profile] = out
+    return outputs
+
+
+def validate_selection(profile: str, suite: str = "swe_review", *, root: Path | None = None) -> dict[str, Any]:
+    root = root or ROOT
+    directory = root / "data" / "selections" / profile
+    selection_path = directory / f"{suite}.jsonl"
+    manifest_path = directory / "manifest.json"
+    if not selection_path.exists() or not manifest_path.exists():
+        raise RuntimeError(f"selection and manifest are required under {directory}")
+    rows = [json.loads(line) for line in selection_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    records = [row.get("record", row) if isinstance(row, dict) else {} for row in rows]
+    errors: list[str] = []
+    if any(not isinstance(record, dict) for record in records):
+        errors.append("record must be an object")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if suite == "swe_review":
+        if any(not str(record.get("instance_id", "")) for record in records): errors.append("missing instance_id")
+        if any(not str(record.get("model_patch", "")) for record in records): errors.append("empty model_patch")
+        expected = int(manifest.get("expected_count", len(records)))
+        if len(records) != expected: errors.append(f"count {len(records)} != manifest {expected}")
+        if str(profile).startswith("swe-review-balanced") and len({str(r.get("instance_id")) for r in records}) != len(records): errors.append("duplicate instance_id")
+        if str(profile).startswith("swe-review-balanced") and manifest.get("resolved_counts") != {"true": 250, "false": 250}: errors.append("balanced resolved distribution is not 250/250")
+        actual = _selection_stats(records)
+        for key in ("generator_counts", "resolved_counts", "difficulty_counts"):
+            if manifest.get(key) != actual.get(key):
+                errors.append(f"{key} does not match manifest")
+    serialized = [json.dumps(r, sort_keys=True, ensure_ascii=False) for r in records]
+    if len(serialized) != len(set(serialized)): errors.append("duplicate records")
+    result = {"valid": not errors, "profile": profile, "suite": suite, "count": len(records), "unique_instance_ids": len({str(r.get("instance_id", "")) for r in records}), "errors": errors}
+    return result

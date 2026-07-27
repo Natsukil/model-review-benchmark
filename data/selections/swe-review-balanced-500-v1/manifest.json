@@ -1,0 +1,28 @@
+{
+  "evaluation_version": "model-review-v2",
+  "profile": "swe-review-balanced-500-v1",
+  "suite": "swe_review",
+  "seed": 20260724,
+  "max_patch_chars": 40000,
+  "selection_policy": "stratified_round_robin_unique_instance_id",
+  "selected_count": 500,
+  "unique_instance_ids": 500,
+  "duplicate_instance_ids": 0,
+  "exact_duplicate_records": 0,
+  "generator_counts": {
+    "GLM-5-FP8": 376,
+    "Qwen/Qwen3-30B-A3B-Instruct-2507": 109,
+    "Qwen/Qwen3-Coder-30B-A3B-Instruct": 15
+  },
+  "resolved_counts": {
+    "false": 250,
+    "true": 250
+  },
+  "difficulty_counts": {
+    "1-4 hours": 42,
+    "15 min - 1 hour": 261,
+    "<15 min fix": 194,
+    ">4 hours": 3
+  },
+  "expected_count": 500
+}

@@ -2,32 +2,38 @@
 
 用于比较 Qwen2.5-Coder-7B、Qwen3-Coder-30B 与 Qwen3-Coder-Next-80B 的 agentic coding 和 code review 能力。
 
-## WSL 下的 review 优先测试
+## Model-only Code Review Benchmark v2（推荐）
 
 ```bash
 conda activate coder-bench
-python -m coder_review_benchmark prepare-review --profile review-hour
-python -m coder_review_benchmark doctor --profile review-hour
+python -m coder_review_benchmark prepare-review-v2
+python -m coder_review_benchmark validate-selection --profile swe-review-balanced-500-v1
+python -m coder_review_benchmark validate-selection --profile swe-review-official-1384-v1
+python -m coder_review_benchmark doctor --profile swe-review-balanced-500-v1
 python -m coder_review_benchmark probe --model qwen3-coder-30b
 
 # 500 个去重、分层的补丁接受/拒绝判断
 python -m coder_review_benchmark run \
   --suite swe_review --model qwen3-coder-30b \
-  --profile review-hour --concurrency 1
+  --profile swe-review-balanced-500-v1 --concurrency 1 \
+  --context-policy common-32k
 
 # 50 个真实 PR、136 条人工金标问题的缺陷定位
 python -m coder_review_benchmark run \
   --suite martian --model qwen3-coder-30b \
-  --profile review-hour --concurrency 1
+  --profile review-hour --concurrency 1 \
+  --context-policy common-32k
 ```
 
-`review-hour` 只准备 review 数据，因此 `doctor` 中 agentic 和 CodeReviewQA 显示为未选择是正常的。单模型服务固定使用 `--concurrency 1`；模型重试次数可用 `CBM_MODEL_MAX_RETRIES` 调整，GitHub PR diff 默认重试三次并缓存在 `data/cache/pr_diffs/`。
+v2 的 SWE-Review 有两个互斥协议：`swe-review-balanced-500-v1` 是 500 个唯一 instance、250 resolved/250 unresolved 的主比较集；`swe-review-official-1384-v1` 保留三个生成器产生的全部非空候选 patch，允许重复 instance，是论文/完整协议。用 `validate-selection` 在运行前检查 JSONL 与 manifest 一致性。单模型服务固定使用 `--concurrency 1`；模型重试次数可用 `CBM_MODEL_MAX_RETRIES` 调整，GitHub PR diff 默认重试三次并缓存在 `data/cache/pr_diffs/`。
 
-SWE-Review 衡量补丁是否应该放行，报告准确率、混淆矩阵，以及按生成模型和修复难度拆分的结果。Martian 衡量能否指出具体问题，用独立 judge 将候选 finding 与人工金标做一对一语义匹配，报告 precision、recall 和 F1；judge 最多每个 PR 调用一次。
+v2 是固定上下文、单轮、无工具的 model-only 评测。`common-32k` 使用确定性的字符预算并在结果中记录原始/最终字符数、截断原因和 prompt SHA；`native-context` 仅用于诊断，不应与主比较混用。Agentic 分支仍保持原有工具循环和 Docker 评测逻辑。
+
+SWE-Review 只允许 `approve`、`request_changes`（兼容别名 `reject`）；未知决策、错误类型、无效 JSON 和 schema 错误均为 invalid，不会被计入混淆矩阵。报告同时给出 format/schema completion、全体/有效样本准确率、balanced accuracy、defect recall、误放行/误拒绝率和 MCC。Martian 使用独立 judge 将候选 finding 与人工金标做一对一语义匹配，报告 raw TP/FP/FN、micro 与 per-PR macro 指标、零 finding PR、judge 错误率及仓库拆分。
 
 模型服务地址和密钥从 `.env` 或当前环境变量读取，例如 `QWEN3_CODER_30B_BASE_URL`、`QWEN3_CODER_30B_API_KEY`。模型名称可通过对应的 `*_MODEL_NAME` 环境变量覆盖，不依赖服务端临时实例别名。
 
-运行结果写入 `outputs/<时间>_<模型>_<套件>/`，其中 `metrics.json` 是汇总指标，`results.jsonl` 保留逐题结果，`run_manifest.json` 记录实际模型名称、上下文长度和 profile。
+运行结果写入 `outputs/<时间>_<模型>_<套件>/`，其中 `metrics.json` 是汇总指标，`results.jsonl` 保留逐题结果，`run_manifest.json` 记录实际模型名称、上下文策略、prompt/dataset manifest SHA、采样设置和可选模型制品元数据，不记录 API key。v2 运行标记为 `evaluation_version=model-review-v2`；汇总器发现 v2 运行时默认排除 Legacy 运行。
 
 所有历史运行可自动汇总为 Excel、Markdown 和 CSV：
 

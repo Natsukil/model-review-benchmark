@@ -13,11 +13,13 @@ import urllib.request
 from pathlib import Path
 
 from .config import ROOT, get_model_profile, suite_config
-from .data import multi_swe_image_name, prepare_agentic_local_profile, prepare_profile, prepare_review_profile
+from .data import multi_swe_image_name, prepare_agentic_local_profile, prepare_profile, prepare_review_profile, prepare_swe_v2_profiles, validate_selection
 from .client import ModelClient
 from .aggregate import summarize_runs
 from .report import write_report
 from .runner import run_agent_task, run_review_task
+from .scoring import calculate_martian_metrics, calculate_swe_metrics, normalize_decision
+from .adapters import MartianReviewAdapter, SWEReviewAdapter, prompt_sha256
 from .judge import score_review
 from .tools import DockerWorkspace, evaluate_patch_in_image
 
@@ -35,9 +37,13 @@ def _parser() -> argparse.ArgumentParser:
     review_prep.add_argument("--swe-review-count", type=int, default=500)
     review_prep.add_argument("--martian-count", type=int, default=50)
     review_prep.add_argument("--max-patch-chars", type=int, default=40000)
+    sub.add_parser("prepare-review-v2")
+    validate = sub.add_parser("validate-selection")
+    validate.add_argument("--profile", required=True)
+    validate.add_argument("--suite", default="swe_review", choices=["swe_review", "martian"])
     doctor = sub.add_parser("doctor"); doctor.add_argument("--profile", default="balanced")
     probe = sub.add_parser("probe"); probe.add_argument("--model", required=True)
-    run = sub.add_parser("run"); run.add_argument("--suite", required=True); run.add_argument("--model", required=True); run.add_argument("--profile", default="balanced"); run.add_argument("--concurrency", type=int, default=1); run.add_argument("--limit", type=int); run.add_argument("--max-turns", type=int, default=20)
+    run = sub.add_parser("run"); run.add_argument("--suite", required=True); run.add_argument("--model", required=True); run.add_argument("--profile", default="balanced"); run.add_argument("--concurrency", type=int, default=1); run.add_argument("--limit", type=int); run.add_argument("--max-turns", type=int, default=20); run.add_argument("--context-policy", choices=["common-32k", "native-context"], default="common-32k")
     rep = sub.add_parser("report"); rep.add_argument("--run-dir", type=Path, required=True)
     summary = sub.add_parser("summarize")
     summary.add_argument("--outputs-dir", type=Path, default=ROOT / "outputs")
@@ -117,16 +123,21 @@ def _fetch_pr_diff(url: str, max_chars: int = 120_000) -> str:
     return diff if len(diff) <= max_chars else diff[:max_chars] + "\n[DIFF TRUNCATED]"
 
 
+def _file_sha256(path: Path) -> str | None:
+    if not path.exists():
+        return None
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def _decision_correct(decision: object, resolved: object) -> bool:
-    value = str(decision or "").lower().replace("-", "_").replace(" ", "_")
-    approve = value in {"approve", "approved", "accept", "accepted"}
-    expected = bool(resolved)
-    return approve == expected
+    value = normalize_decision(decision)
+    if value is None:
+        return False
+    return value == ("approve" if bool(resolved) else "request_changes")
 
 
 def _approve_decision(decision: object) -> bool:
-    value = str(decision or "").lower().replace("-", "_").replace(" ", "_")
-    return value in {"approve", "approved", "accept", "accepted"}
+    return normalize_decision(decision) == "approve"
 
 
 def _swe_review_breakdown(rows: list[dict[str, object]], key: str) -> dict[str, dict[str, object]]:
@@ -143,7 +154,7 @@ def _swe_review_breakdown(rows: list[dict[str, object]], key: str) -> dict[str, 
     return result
 
 
-def _run(suite: str, model_id: str, profile_name: str, limit: int | None, max_turns: int = 20) -> None:
+def _run(suite: str, model_id: str, profile_name: str, limit: int | None, max_turns: int = 20, context_policy: str = "common-32k") -> None:
     if max_turns <= 0:
         raise ValueError("max_turns must be positive")
     if suite == "agentic":
@@ -162,6 +173,10 @@ def _run(suite: str, model_id: str, profile_name: str, limit: int | None, max_tu
         raise RuntimeError(f"Selection missing: {source}; run prepare first")
     run_dir = ROOT / "outputs" / f"{time.strftime('%Y%m%d-%H%M%S')}_{model_id}_{suite}"
     run_dir.mkdir(parents=True, exist_ok=True)
+    review_adapter = MartianReviewAdapter() if suite == "martian" else SWEReviewAdapter()
+    dataset_manifest = selection_dir / "manifest.json"
+    if not dataset_manifest.exists():
+        dataset_manifest = selection_dir / "review_manifest.json"
     manifest = {
         "suite": suite,
         "profile": profile_name,
@@ -174,7 +189,14 @@ def _run(suite: str, model_id: str, profile_name: str, limit: int | None, max_tu
         "limit": limit,
         "max_turns": max_turns,
         "evaluation_method": "official_image_tests_no_uploads" if suite == "agentic" else None,
-        "evaluation_version": "batch-one-to-one-v1" if suite == "martian" else "review-v1",
+        "evaluation_version": "model-review-v2" if suite in {"martian", "swe_review"} else ("official_image_tests_v1" if suite == "agentic" else "legacy"),
+        "context_policy": context_policy if suite in {"martian", "swe_review"} else None,
+        "prompt_version": "model-only-v2" if suite in {"martian", "swe_review"} else None,
+        "prompt_sha256": prompt_sha256(review_adapter) if suite in {"martian", "swe_review"} else None,
+        "dataset_manifest_sha256": _file_sha256(dataset_manifest),
+        "sampling": {"temperature": 0, "top_p": None, "seed": None},
+        "model_artifact": {"filename": os.getenv("CBM_MODEL_ARTIFACT_FILENAME"), "sha256": os.getenv("CBM_MODEL_ARTIFACT_SHA256"), "quantization": os.getenv("CBM_MODEL_QUANTIZATION"), "serving_engine": os.getenv("CBM_SERVING_ENGINE"), "serving_engine_version": os.getenv("CBM_SERVING_ENGINE_VERSION"), "chat_template": os.getenv("CBM_CHAT_TEMPLATE")},
+        "dataset_profile": profile_name,
         "environment": {"qwen_base_url": profile.base_url, "judge_base_url": judge_profile.base_url if judge_profile else None},
     }
     (run_dir / "run_manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -193,11 +215,11 @@ def _run(suite: str, model_id: str, profile_name: str, limit: int | None, max_tu
                         raise RuntimeError("Martian selection contains a non-golden record; run prepare --profile balanced again")
                     task = dict(task)
                     task["patch"] = _fetch_pr_diff(task["url"])
-                    task["review"] = task.get("pr_title", "")
+                    task["pr_body"] = task.get("pr_body", task.get("body", ""))
                 workspace = run_dir / "workspaces" / str(index)
                 workspace.mkdir(parents=True, exist_ok=True)
                 if suite in {"codereviewqa", "martian", "swe_review"}:
-                    result = run_review_task(ModelClient(profile), task)
+                    result = run_review_task(ModelClient(profile), task, protocol="martian" if suite == "martian" else "swe", context_policy=context_policy)
                 else:
                     image = item.get("image") or multi_swe_image_name(task)
                     command_timeout = int(os.getenv("CBM_AGENTIC_COMMAND_TIMEOUT", "120"))
@@ -217,7 +239,7 @@ def _run(suite: str, model_id: str, profile_name: str, limit: int | None, max_tu
                 if suite == "martian" and judge_client:
                     result["judge"] = score_review(result["review"], task["comments"], judge_client)
                 if suite == "swe_review":
-                    result["decision_correct"] = _decision_correct(result.get("review", {}).get("decision"), task.get("resolved"))
+                    result["decision_correct"] = result.get("review", {}).get("decision") == ("approve" if bool(task.get("resolved")) else "request_changes")
                     result.update(
                         {
                             "instance_id": task.get("instance_id"),
@@ -250,48 +272,18 @@ def _run(suite: str, model_id: str, profile_name: str, limit: int | None, max_tu
     wall_elapsed = time.monotonic() - run_started
     model_elapsed = sum(float(row.get("elapsed") or 0.0) for row in rows)
     if suite == "martian":
-        totals = {key: sum(int(row.get("judge", {}).get(key, 0)) for row in rows) for key in ("tp", "fp", "fn")}
-        totals["fn"] += sum(int(row.get("golden_finding_count", 0)) for row in rows if not isinstance(row.get("judge"), dict))
-        precision = totals["tp"] / (totals["tp"] + totals["fp"]) if totals["tp"] + totals["fp"] else 0.0
-        recall = totals["tp"] / (totals["tp"] + totals["fn"]) if totals["tp"] + totals["fn"] else 0.0
-        totals.update({
-            "precision": precision,
-            "recall": recall,
-            "f1": 2 * precision * recall / (precision + recall) if precision + recall else 0.0,
-            "completion_rate": sum(row.get("status") == "completed" for row in rows) / len(rows) if rows else 0.0,
-            "average_findings": sum(len(row.get("review", {}).get("findings", [])) for row in rows) / len(rows) if rows else 0.0,
-            "judge_calls": sum(int(row.get("judge", {}).get("judge_calls", 0)) for row in rows),
-            "judge_errors": sum(len(row.get("judge", {}).get("errors", [])) for row in rows),
-            "unscored_samples": sum(not isinstance(row.get("judge"), dict) for row in rows),
-            "model_elapsed_seconds": model_elapsed,
-            "judge_elapsed_seconds": sum(float(row.get("judge", {}).get("judge_elapsed", 0.0)) for row in rows),
-            "wall_elapsed_seconds": wall_elapsed,
-        })
-        (run_dir / "metrics.json").write_text(json.dumps({"suite": suite, "judge_model": judge_profile.model_name if judge_profile else None, **totals}, indent=2), encoding="utf-8")
+        metrics = calculate_martian_metrics(rows)
+        metrics.update({"suite": suite, "judge_model": judge_profile.model_name if judge_profile else None, "completion_rate": sum(row.get("status") == "completed" for row in rows) / len(rows) if rows else 0.0, "model_elapsed_seconds": model_elapsed, "judge_elapsed_seconds": sum(float(row.get("judge", {}).get("judge_elapsed", 0.0)) for row in rows), "wall_elapsed_seconds": wall_elapsed})
+        (run_dir / "metrics.json").write_text(json.dumps(metrics, indent=2), encoding="utf-8")
     elif suite == "swe_review":
-        completed = sum(row.get("status") == "completed" for row in rows)
-        accuracy = sum(bool(row.get("decision_correct")) for row in rows) / len(rows) if rows else 0.0
-        valid_rows = [row for row in rows if row.get("status") == "completed" and row.get("review", {}).get("parseable")]
-        approved_resolved = sum(_approve_decision(row.get("review", {}).get("decision")) and bool(row.get("expected_resolved")) for row in valid_rows)
-        approved_unresolved = sum(_approve_decision(row.get("review", {}).get("decision")) and not bool(row.get("expected_resolved")) for row in valid_rows)
-        rejected_resolved = sum(not _approve_decision(row.get("review", {}).get("decision")) and bool(row.get("expected_resolved")) for row in valid_rows)
-        rejected_unresolved = sum(not _approve_decision(row.get("review", {}).get("decision")) and not bool(row.get("expected_resolved")) for row in valid_rows)
+        metrics = calculate_swe_metrics(rows)
         (run_dir / "metrics.json").write_text(json.dumps({
             "suite": suite,
-            "completion_rate": completed / len(rows) if rows else 0.0,
-            "decision_accuracy": accuracy,
-            "decision_accuracy_completed": sum(bool(row.get("decision_correct")) for row in valid_rows) / len(valid_rows) if valid_rows else 0.0,
-            "confusion_matrix": {
-                "approved_resolved": approved_resolved,
-                "approved_unresolved": approved_unresolved,
-                "rejected_resolved": rejected_resolved,
-                "rejected_unresolved": rejected_unresolved,
-            },
-            "average_findings": sum(len(row.get("review", {}).get("findings", [])) for row in valid_rows) / len(valid_rows) if valid_rows else 0.0,
+            **metrics,
+            "completion_rate": metrics["schema_completion_rate"],
+            "decision_accuracy": metrics["decision_accuracy_all"],
             "model_elapsed_seconds": model_elapsed,
             "wall_elapsed_seconds": wall_elapsed,
-            "by_generator_model": _swe_review_breakdown(rows, "generator_model"),
-            "by_difficulty": _swe_review_breakdown(rows, "difficulty"),
         }, indent=2), encoding="utf-8")
     elif suite == "agentic":
         evaluated = [row for row in rows if isinstance(row.get("evaluation"), dict)]
@@ -337,7 +329,11 @@ def main(argv: list[str] | None = None) -> int:
     elif args.command == "run":
         if args.concurrency != 1:
             raise ValueError("only --concurrency 1 is currently supported; this protects single-model deployments")
-        _run(args.suite, args.model, args.profile, args.limit, args.max_turns)
+        _run(args.suite, args.model, args.profile, args.limit, args.max_turns, args.context_policy)
+    elif args.command == "prepare-review-v2":
+        print(json.dumps({key: str(value) for key, value in prepare_swe_v2_profiles().items()}, ensure_ascii=False, indent=2))
+    elif args.command == "validate-selection":
+        print(json.dumps(validate_selection(args.profile, args.suite), ensure_ascii=False, indent=2))
     elif args.command == "report":
         print(write_report(args.run_dir))
     elif args.command == "summarize":

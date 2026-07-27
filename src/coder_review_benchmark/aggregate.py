@@ -82,6 +82,18 @@ def collect_runs(outputs_dir: Path) -> list[dict[str, Any]]:
             "completion_rate": metrics.get("completion_rate"),
             "malformed_calls": stats["malformed_calls"],
             "decision_accuracy": metrics.get("decision_accuracy"),
+            "format_completion_rate": metrics.get("format_completion_rate"),
+            "schema_completion_rate": metrics.get("schema_completion_rate"),
+            "decision_accuracy_all": metrics.get("decision_accuracy_all"),
+            "decision_accuracy_valid": metrics.get("decision_accuracy_valid"),
+            "balanced_accuracy": metrics.get("balanced_accuracy"),
+            "defect_recall": metrics.get("defect_recall"),
+            "false_acceptance_rate": metrics.get("false_acceptance_rate"),
+            "false_rejection_rate": metrics.get("false_rejection_rate"),
+            "MCC": metrics.get("MCC"),
+            "approve_rate": metrics.get("approve_rate"),
+            "request_changes_rate": metrics.get("request_changes_rate"),
+            "invalid_decision_rate": metrics.get("invalid_decision_rate"),
             "average_findings": metrics.get("average_findings"),
             "approved_resolved": confusion.get("approved_resolved"),
             "approved_unresolved": confusion.get("approved_unresolved"),
@@ -90,6 +102,12 @@ def collect_runs(outputs_dir: Path) -> list[dict[str, Any]]:
             "precision": metrics.get("precision"),
             "recall": metrics.get("recall"),
             "f1": metrics.get("f1"),
+            "micro_precision": metrics.get("micro_precision"),
+            "micro_recall": metrics.get("micro_recall"),
+            "micro_f1": metrics.get("micro_f1"),
+            "per_pr_macro_f1": metrics.get("per_pr_macro_f1"),
+            "zero_finding_prs": metrics.get("zero_finding_prs"),
+            "judge_error_rate": metrics.get("judge_error_rate"),
             "tp": metrics.get("tp"),
             "fp": metrics.get("fp"),
             "fn": metrics.get("fn"),
@@ -111,10 +129,12 @@ def collect_runs(outputs_dir: Path) -> list[dict[str, Any]]:
     return runs
 
 
-def select_comparison_runs(runs: list[dict[str, Any]], profile: str | None = None) -> list[dict[str, Any]]:
+def select_comparison_runs(runs: list[dict[str, Any]], profile: str | None = None, evaluation_version: str | None = None) -> list[dict[str, Any]]:
     selected: dict[tuple[str, str], dict[str, Any]] = {}
     for row in runs:
         if profile is not None and row.get("profile") != profile:
+            continue
+        if evaluation_version is not None and row.get("evaluation_version") != evaluation_version:
             continue
         key = (str(row["model_profile"]), str(row["suite"]))
         rank = (int(row["sample_count"]), float(row["completion_rate"] or 0.0), str(row["timestamp"]))
@@ -151,7 +171,7 @@ def _comparison_rows(selected: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "swe_samples": swe.get("sample_count"),
             "swe_completion": swe.get("completion_rate"),
             "swe_accuracy": swe.get("decision_accuracy"),
-            "swe_defect_recall": (
+            "swe_defect_recall": swe.get("defect_recall") if swe.get("defect_recall") is not None else (
                 swe.get("rejected_unresolved") / (swe.get("rejected_unresolved") + swe.get("approved_unresolved"))
                 if swe.get("rejected_unresolved") is not None and swe.get("approved_unresolved") is not None
                 and swe.get("rejected_unresolved") + swe.get("approved_unresolved") else None
@@ -257,7 +277,11 @@ def summarize_runs(outputs_dir: Path, output_dir: Path, profile: str | None = "r
     runs = collect_runs(outputs_dir)
     if not runs:
         raise RuntimeError(f"没有在 {outputs_dir} 中找到可汇总的 metrics.json")
-    selected = select_comparison_runs(runs, profile)
+    # If v2 runs exist, legacy runs are intentionally excluded from the
+    # default comparison. A legacy-only directory remains readable for
+    # backwards compatibility.
+    has_v2 = any(row.get("evaluation_version") == "model-review-v2" for row in runs)
+    selected = select_comparison_runs(runs, profile, "model-review-v2" if has_v2 else None)
     if not selected:
         raise RuntimeError(f"没有找到 profile={profile!r} 的可比较运行")
     output_dir.mkdir(parents=True, exist_ok=True)

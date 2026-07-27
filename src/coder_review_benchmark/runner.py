@@ -10,7 +10,8 @@ from .client import ModelClient
 from .config import ModelProfile
 from .tool_parser import parse_tool_calls
 from .tools import SafeWorkspace, TOOL_SCHEMAS
-from .scoring import parse_review
+from .scoring import parse_martian_review, parse_review
+from .adapters import MartianReviewAdapter, ReviewInput, SWEReviewAdapter
 
 
 SYSTEM = "You are a careful software engineer. Explore the repository with tools, make the smallest correct change, run tests, and report what you did."
@@ -104,18 +105,25 @@ def run_agent_task(
     return {"status": "max_turns", "answer": "", "events": events, "malformed_calls": malformed, "wall_seconds": time.perf_counter() - started}
 
 
-def run_review_task(client: ModelClient, task: dict[str, Any]) -> dict[str, Any]:
-    code = task.get("old") or task.get("code") or task.get("patch") or task.get("model_patch") or ""
-    review = task.get("review") or task.get("problem_statement") or task.get("pr_body") or ""
-    prompt = ("Review the following code change. Return only one JSON object with keys decision, summary, and findings. "
-              "decision must be exactly approve or reject. Use approve only when there are no actionable correctness issues. "
-              "findings must be an array; each finding must contain path, line, severity, category, and description. "
-              "If you approve, return an empty findings array. Report correctness issues, not style preferences.\n\n"
-              f"CODE/DIFF:\n{code}\n\nREQUEST/REVIEW:\n{review}")
+def run_review_task(client: ModelClient, task: dict[str, Any], *, protocol: str = "swe", context_policy: str = "common-32k", adapter: Any | None = None) -> dict[str, Any]:
+    adapter = adapter or (MartianReviewAdapter() if protocol == "martian" else SWEReviewAdapter())
+    prepared: ReviewInput = adapter.prepare(task, context_policy)
     response, elapsed = client.chat(
-        [{"role": "system", "content": "You are a precise code reviewer. Report only actionable, evidence-based issues."}, {"role": "user", "content": prompt}],
+        prepared.messages,
         max_tokens=min(client.profile.max_output_tokens, 2048),
     )
     content = ((response.get("choices") or [{}])[0].get("message") or {}).get("content") or ""
-    parsed = parse_review(content)
-    return {"status": "completed" if parsed["parseable"] else "format_failure", "answer": content, "review": parsed, "elapsed": elapsed, "malformed_calls": 0}
+    parsed = parse_martian_review(content) if protocol == "martian" else parse_review(content, protocol="swe")
+    usage = response.get("usage") if isinstance(response.get("usage"), dict) else {}
+    choice = (response.get("choices") or [{}])[0] if isinstance(response, dict) else {}
+    finish_reason = choice.get("finish_reason") if isinstance(choice, dict) else None
+    status = "completed" if parsed["schema_valid"] else ("format_failure" if not parsed["format_valid"] else "schema_failure")
+    result = {"status": status, "answer": content, "review": parsed, "elapsed": elapsed, "malformed_calls": 0,
+              "prompt_version": prepared.prompt_version, "prompt_sha256": prepared.prompt_sha256,
+              "original_input_chars": prepared.original_input_chars, "final_input_chars": prepared.final_input_chars,
+              "truncated": prepared.truncated, "truncation_reason": prepared.truncation_reason,
+              "finish_reason": finish_reason}
+    for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
+        if key in usage:
+            result[key] = usage[key]
+    return result
