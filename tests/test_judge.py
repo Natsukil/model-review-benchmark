@@ -60,3 +60,18 @@ def test_score_review_rejects_duplicate_batch_matches():
     assert result["tp"] == 1
     assert result["fn"] == 1
     assert result["errors"][0]["error"] == "judge returned a non-unique match"
+
+
+def test_judge_schema_failure_preserves_diagnostics():
+    class InvalidJudge:
+        last_request_attempts = 1
+        def chat(self, messages, **kwargs):
+            return {"choices": [{"message": {"content": "not-json"}, "finish_reason": "stop"}], "_request_attempts": 1}, 0.02
+
+    review = {"parseable": True, "findings": [{"path": "a.py", "line": 1, "severity": "high", "category": "correctness", "description": "bug"}]}
+    result = score_review(review, [{"comment": "bug"}], InvalidJudge())
+    assert result["raw_response"] == "not-json"
+    assert result["request_attempts"] == 1
+    assert result["finish_reason"] == "stop"
+    assert result["elapsed"] == 0.02
+    assert result["schema_error"]

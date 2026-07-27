@@ -9,7 +9,7 @@ def test_three_models_receive_byte_identical_messages_and_hashes():
     serialized = [json.dumps(item.messages, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode() for item in prepared]
     assert serialized[0] == serialized[1] == serialized[2]
     assert len({item.messages_sha256 for item in prepared}) == 1
-    assert all(len(item.benchmark_serialization_sha256) == 64 for item in prepared)
+    assert all(len(item.user_content_sha256) == 64 for item in prepared)
 
 
 def test_adapters_do_not_expose_gold_or_test_results():

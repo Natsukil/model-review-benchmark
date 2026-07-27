@@ -6,8 +6,6 @@ import json
 from typing import Any
 
 MAX_INPUT_CHARS = 100_000
-BENCHMARK_SERIALIZATION_SPEC = "canonical-json:utf-8;sort_keys=true;separators=(',',':');ensure_ascii=false"
-BENCHMARK_SERIALIZATION_SHA256 = hashlib.sha256(BENCHMARK_SERIALIZATION_SPEC.encode()).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -20,12 +18,22 @@ class ContextResult:
     sha256: str
     original_tokens: int | None
     final_tokens: int | None
-    benchmark_serialization_sha256: str = BENCHMARK_SERIALIZATION_SHA256
 
 
 def messages_sha256(messages: list[dict[str, Any]]) -> str:
     payload = json.dumps(messages, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _head_tail(text: str, budget: int, label: str) -> str:
+    if len(text) <= budget:
+        return text
+    marker = f"\n[{label} TRUNCATED]\n"
+    if budget <= len(marker) + 2:
+        return text[:budget]
+    remaining = budget - len(marker)
+    head = remaining // 2
+    return text[:head] + marker + text[-(remaining - head):]
 
 
 def _preserve_diff_header(diff: str, budget: int) -> str:
@@ -35,17 +43,12 @@ def _preserve_diff_header(diff: str, budget: int) -> str:
         return ""
     lines = diff.splitlines(keepends=True)
     header = "".join(line for line in lines if line.startswith(("diff --git ", "--- ", "+++ ", "@@ ")))
-    if len(header) >= budget:
-        return header[:budget]
-    marker = "\n[DIFF TRUNCATED deterministically]\n"
-    body_budget = budget - len(header)
-    if body_budget <= len(marker):
-        return (header + diff[:body_budget])[:budget]
-    body_budget -= len(marker)
-    head = body_budget * 3 // 4
-    tail = body_budget - head
-    omitted = max(0, len(diff) - head - tail)
-    return header + diff[:head] + f"\n[DIFF TRUNCATED: omitted {omitted} chars]\n" + diff[-tail:]
+    # Reserve bounded space for file/hunk headers, then deterministically keep
+    # both the beginning and end of the complete diff.
+    header_budget = min(len(header), budget // 3)
+    kept_headers = _head_tail(header, header_budget, "DIFF HEADERS") if header_budget else ""
+    kept_body = _head_tail(diff, budget - len(kept_headers), "DIFF")
+    return kept_headers + kept_body
 
 
 def _candidate(text: str, diff: str | None, char_budget: int) -> str:

@@ -44,9 +44,9 @@ python -m coder_review_benchmark run \
   --context-policy common-100k-char-v1
 ```
 
-v2 的 SWE-Review 有两个互斥协议：`swe-review-balanced-500-v1` 是 500 个唯一 instance、250 resolved/250 unresolved 的主比较集；`swe-review-official-1384-v1` 保留三个生成器产生的全部非空候选 patch，允许重复 instance，是论文/完整协议。用 `validate-selection` 在运行前检查 JSONL 与 manifest 一致性。单模型服务固定使用 `--concurrency 1`；模型重试次数可用 `CBM_MODEL_MAX_RETRIES` 调整，GitHub PR diff 默认重试三次并缓存在 `data/cache/pr_diffs/`。
+v2 的 SWE-Review 有两个互斥协议：`swe-review-balanced-500-v1` 是 500 个唯一 instance、250 resolved/250 unresolved 的主比较集；`swe-review-official-1384-v1` 保留三个生成器产生的全部非空候选 patch，允许重复 instance，是论文/完整协议。用 `validate-selection` 在运行前检查 JSONL 与 manifest 一致性。单模型服务固定使用 `--concurrency 1`；模型传输失败最多重试一次，GitHub PR diff 默认重试三次并缓存在 `data/cache/pr_diffs/`。
 
-v2 是固定上下文、单轮、无工具的 model-only 评测。当前冻结协议为 `common-100k-char-v1`：最多保留 100000 字符并确定性裁剪 Diff，Manifest 不宣称 token 预算，token 字段保持空值；同时记录字符数、截断原因、`benchmark_serialization_sha256`、`user_content_sha256` 和 `messages_sha256`。这里的序列化哈希只描述 Benchmark 的 canonical JSON 序列化，不代表服务端实际 Chat Template。接入可复现的真实 tokenizer 后才能启用并命名 `common-32k`。`native-context` 仅用于诊断，不应与主比较混用。
+v2 是固定上下文、单轮、无工具的 model-only 评测。当前冻结协议为 `common-100k-char-v1`：最多保留 100000 字符并确定性保留 Issue/PR 描述、Diff 文件头与 Diff 首尾，Manifest 不宣称 token 预算，输入 token 字段保持空值；同时记录字符数、截断原因、`user_content_sha256` 和 `messages_sha256`。`native-context` 仅用于诊断，不应与主比较混用。
 
 公平赛道默认 `structured_output: true`，由每次请求的 `response_format` 发送 JSON Schema；如需执行 prompt-only-json 消融，可临时设置 `CBM_STRUCTURED_OUTPUT=false`，并将该设置记录在实验 manifest 中。
 

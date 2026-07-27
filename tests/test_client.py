@@ -1,4 +1,9 @@
-from coder_review_benchmark.client import ModelClient
+import io
+import urllib.error
+
+import pytest
+
+from coder_review_benchmark.client import ModelClient, ModelRequestError
 from coder_review_benchmark.config import ModelProfile
 
 
@@ -33,3 +38,14 @@ def test_no_auth_profile_omits_authorization(monkeypatch):
     )
     ModelClient(profile).chat([{"role": "user", "content": "hello"}])
     assert "Authorization" not in captured
+
+
+def test_http_error_preserves_raw_response_and_attempt_count(monkeypatch):
+    profile = ModelProfile("m", "m", "http://invalid/v1", "", "native_tool_calls", 64, 32768, 1, send_auth=False)
+    def fail(request, timeout):
+        raise urllib.error.HTTPError(request.full_url, 400, "bad", {}, io.BytesIO(b'{"error":"unsupported schema"}'))
+    monkeypatch.setattr("urllib.request.urlopen", fail)
+    with pytest.raises(ModelRequestError) as caught:
+        ModelClient(profile).chat([{"role": "user", "content": "x"}])
+    assert caught.value.raw_response == '{"error":"unsupported schema"}'
+    assert caught.value.request_attempts == 1

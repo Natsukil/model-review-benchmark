@@ -80,9 +80,10 @@ def _breakdowns(rows: list[dict[str, Any]], field: str, label: str) -> list[dict
 def _judge_errors(samples: list[dict[str, Any]]) -> list[dict[str, Any]]:
     output: list[dict[str, Any]] = []
     for sample in samples:
-        errors = (sample.get("judge") or {}).get("errors", []) if isinstance(sample.get("judge"), dict) else []
+        judge = sample.get("judge") if isinstance(sample.get("judge"), dict) else {}
+        errors = judge.get("errors", [])
         for error in errors:
-            output.append({"task_id": sample.get("task_id"), "model_profile": sample.get("model_profile"), "sample_id": sample.get("sample_id"), "pr_url": sample.get("pr_url"), **(error if isinstance(error, dict) else {"error": str(error)})})
+            output.append({"task_id": sample.get("task_id"), "model_profile": sample.get("model_profile"), "sample_id": sample.get("sample_id"), "pr_url": sample.get("pr_url"), "raw_response": judge.get("raw_response"), "request_attempts": judge.get("request_attempts"), "finish_reason": judge.get("finish_reason"), "elapsed": judge.get("elapsed", judge.get("judge_elapsed")), "schema_error": judge.get("schema_error"), **(error if isinstance(error, dict) else {"error": str(error)})})
     return output
 
 

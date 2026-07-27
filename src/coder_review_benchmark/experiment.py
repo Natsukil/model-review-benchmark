@@ -132,13 +132,16 @@ def generate_review_run(
     manifest_path = _manifest_path(task, root)
     generation_settings = {key: getattr(profile, key) for key in ("temperature", "top_p", "seed", "stream", "repeat_penalty", "presence_penalty", "frequency_penalty", "structured_output")}
     resume_fields = {
+        "evaluation_version": "model-review-v2",
+        "model_profile": task.model_profile,
+        "model_name": profile.model_name,
         "prompt_sha256": prompt_sha256(adapter),
         "selection_jsonl_sha256": _sha256(source),
         "dataset_manifest_sha256": _sha256(manifest_path),
         "context_policy": context_policy,
         "generation_settings": generation_settings,
         "model_artifact_sha256": (model_metadata or {}).get("sha256") or None,
-        "evaluation_version": "model-review-v2",
+        "limit": task.limit,
     }
     manifest = {
         "experiment_id": experiment_id,
@@ -232,7 +235,7 @@ def judge_martian_run(run_dir: Path, task: ExperimentTask, judge_profile: ModelP
         golden_by_id[sample_id] = (record, record_sha)
     judge = client_factory(judge_profile)
     for row in rows:
-        if resume and isinstance(row.get("judge"), dict):
+        if resume and isinstance(row.get("judge"), dict) and not row["judge"].get("errors"):
             continue
         sample_id = str(row.get("sample_id") or "")
         if not sample_id or sample_id not in golden_by_id:
@@ -245,7 +248,7 @@ def judge_martian_run(run_dir: Path, task: ExperimentTask, judge_profile: ModelP
         try:
             row["judge"] = score_review(row.get("review", {}), record.get("comments") or [], judge)
         except Exception as exc:
-            row["judge"] = {"tp": 0, "fp": len(row.get("review", {}).get("findings", [])), "fn": len(record.get("comments") or []), "precision": 0.0, "recall": 0.0, "f1": 0.0, "matches": [], "errors": [{"error": str(exc)}], "judge_calls": 1, "judge_elapsed": 0.0}
+            row["judge"] = {"tp": 0, "fp": len(row.get("review", {}).get("findings", [])), "fn": len(record.get("comments") or []), "precision": 0.0, "recall": 0.0, "f1": 0.0, "matches": [], "errors": [{"error": str(exc), "schema_error": "judge execution failed"}], "judge_calls": 1, "judge_elapsed": 0.0, "elapsed": 0.0, "raw_response": None, "request_attempts": int(getattr(judge, "last_request_attempts", 0) or 0), "finish_reason": None, "schema_error": "judge execution failed"}
     temporary = results_path.with_suffix(".jsonl.tmp")
     temporary.write_text("\n".join(json.dumps(row, ensure_ascii=False) for row in rows) + "\n", encoding="utf-8")
     temporary.replace(results_path)
@@ -253,6 +256,8 @@ def judge_martian_run(run_dir: Path, task: ExperimentTask, judge_profile: ModelP
     metrics["judge_elapsed_seconds"] = sum(float(row.get("judge", {}).get("judge_elapsed") or 0.0) for row in rows)
     _write_json(run_dir / "metrics.json", metrics)
     write_report(run_dir)
+    if int(metrics.get("judge_errors") or 0):
+        raise RuntimeError(f"Martian judge recorded {metrics['judge_errors']} error(s); scoring is incomplete")
 
 
 def _model_entry(config: dict[str, Any], model_id: str) -> dict[str, Any]:
@@ -391,8 +396,6 @@ def run_matrix(
             _write_json(experiment_dir / "judge_manifest.json", {"experiment_id": experiment_id, "evaluation_version": "model-review-v2", "phase": "judge", "model_profile": str(config.get("judge", {}).get("profile", "judge")), "model_name": judge_profile.model_name, "max_context_tokens": judge_profile.max_context_tokens, "max_output_tokens": judge_profile.max_output_tokens, "prompt_version": "batch-one-to-one-v1", "prompt_sha256": hashlib.sha256(BATCH_MATCH_PROMPT.encode()).hexdigest(), "generation_settings": {key: getattr(judge_profile, key) for key in ("temperature", "top_p", "seed", "stream", "repeat_penalty", "presence_penalty", "frequency_penalty", "structured_output")}, "model_artifact": config.get("judge", {}).get("artifact") or {}})
             for task in martian_tasks:
                 task_state = state["tasks"][task.id]
-                if resume and task_state.get("judge_status") == "completed":
-                    continue
                 try:
                     judge_runner(Path(task_state["run_dir"]), task, judge_profile, root=root, resume=resume, client_factory=client_factory)
                     task_state["judge_status"] = "completed"

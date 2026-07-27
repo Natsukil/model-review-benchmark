@@ -10,6 +10,13 @@ from typing import Any
 from .config import ModelProfile
 
 
+class ModelRequestError(RuntimeError):
+    def __init__(self, message: str, *, raw_response: str | None, request_attempts: int):
+        super().__init__(message)
+        self.raw_response = raw_response
+        self.request_attempts = request_attempts
+
+
 class ModelClient:
     def __init__(self, profile: ModelProfile, timeout: int = 300, max_retries: int | None = None):
         self.profile = profile
@@ -75,11 +82,11 @@ class ModelClient:
                     except Exception:
                         detail = ""
                     suffix = f": {detail}" if detail else ""
-                    raise RuntimeError(f"model request failed after {attempt + 1} attempt(s): HTTP {exc.code}{suffix}") from exc
+                    raise ModelRequestError(f"model request failed after {attempt + 1} attempt(s): HTTP {exc.code}{suffix}", raw_response=detail or None, request_attempts=attempt + 1) from exc
             except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
                 last_error = exc
                 if attempt >= self.max_retries:
-                    raise RuntimeError(f"model request failed after {attempt + 1} attempt(s): {exc}") from exc
+                    raise ModelRequestError(f"model request failed after {attempt + 1} attempt(s): {exc}", raw_response=None, request_attempts=attempt + 1) from exc
             time.sleep(min(2 ** attempt, 8))
         else:  # pragma: no cover - defensive; the loop always returns or raises
             raise RuntimeError(f"model request failed: {last_error}")

@@ -69,6 +69,8 @@ def test_resume_rejects_prompt_or_selection_change_before_manifest_overwrite(tmp
     experiment_dir = tmp_path / "outputs" / "experiments" / "resume"
     run_dir = generate_review_run(experiment_dir, "resume", task, profile, context_policy="common-100k-char-v1", root=tmp_path, client_factory=FakeModelClient)
     manifest_before = (run_dir / "run_manifest.json").read_bytes()
+    fingerprint = json.loads(manifest_before)["resume_fingerprint"]
+    assert {"evaluation_version", "model_profile", "model_name", "prompt_sha256", "selection_jsonl_sha256", "dataset_manifest_sha256", "context_policy", "generation_settings", "model_artifact_sha256", "limit", "sha256"} <= set(fingerprint)
     monkeypatch.setattr(experiment_module, "prompt_sha256", lambda adapter: "0" * 64)
     with pytest.raises(RuntimeError, match="resume fingerprint mismatch"):
         generate_review_run(experiment_dir, "resume", task, profile, context_policy="common-100k-char-v1", root=tmp_path, resume=True, client_factory=FakeModelClient)
@@ -98,3 +100,22 @@ def test_martian_judge_matches_reordered_gold_by_stable_id(tmp_path):
     judge_martian_run(run_dir, ExperimentTask("m", "martian", "martian-tiny"), _profile("judge"), root=tmp_path, client_factory=FakeModelClient)
     judged = [json.loads(line) for line in (run_dir / "results.jsonl").read_text(encoding="utf-8").splitlines()]
     assert [row["judge"]["fn"] for row in judged] == [1, 1]
+
+
+def test_martian_judge_errors_fail_the_judge_phase(tmp_path):
+    directory = tmp_path / "data" / "selections" / "martian-error"
+    directory.mkdir(parents=True)
+    record = {"url": "https://github.com/o/r/pull/3", "comments": [{"comment": "gold"}]}
+    (directory / "martian.jsonl").write_text(json.dumps({"record": record}) + "\n", encoding="utf-8")
+    sample_id, golden_sha = _golden_identity(record)
+    row = {"index": 0, "sample_id": sample_id, "pr_url": record["url"], "golden_record_sha256": golden_sha, "golden_finding_count": 1, "status": "completed", "review": {"parseable": True, "findings": [{"path": "a", "line": 1, "severity": "high", "category": "correctness", "description": "candidate"}]}}
+    run_dir = tmp_path / "error-run"
+    run_dir.mkdir()
+    (run_dir / "results.jsonl").write_text(json.dumps(row) + "\n", encoding="utf-8")
+
+    class InvalidJudge(FakeModelClient):
+        def chat(self, messages, **kwargs):
+            return {"choices": [{"message": {"content": "not-json"}, "finish_reason": "stop"}], "_request_attempts": 1}, 0.01
+
+    with pytest.raises(RuntimeError, match="scoring is incomplete"):
+        judge_martian_run(run_dir, ExperimentTask("m", "martian", "martian-error"), _profile("judge"), root=tmp_path, client_factory=InvalidJudge)

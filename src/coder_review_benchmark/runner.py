@@ -124,7 +124,7 @@ def run_review_task(client: ModelClient, task: dict[str, Any], *, protocol: str 
               "original_input_chars": prepared.original_input_chars, "final_input_chars": prepared.final_input_chars,
               "truncated": prepared.truncated, "truncation_reason": prepared.truncation_reason,
               "original_input_tokens": prepared.original_input_tokens, "final_input_tokens": prepared.final_input_tokens,
-              "benchmark_serialization_sha256": prepared.benchmark_serialization_sha256, "user_content_sha256": prepared.user_content_sha256,
+              "user_content_sha256": prepared.user_content_sha256,
               "messages_sha256": prepared.messages_sha256,
               "finish_reason": finish_reason,
               "request_attempts": int(response.get("_request_attempts") or getattr(client, "last_request_attempts", 1) or 1)}
