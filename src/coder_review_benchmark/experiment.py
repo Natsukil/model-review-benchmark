@@ -73,6 +73,17 @@ def _sha256(path: Path) -> str | None:
     return hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
 
 
+def _canonical_sha256(value: Any) -> str:
+    payload = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _golden_identity(record: dict[str, Any]) -> tuple[str, str]:
+    pr_url = str(record.get("url") or record.get("pr_url") or "")
+    sample_id = str(record.get("sample_id") or hashlib.sha256(pr_url.encode("utf-8")).hexdigest())
+    return sample_id, _canonical_sha256(record)
+
+
 def _write_json(path: Path, value: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + ".tmp")
@@ -119,6 +130,16 @@ def generate_review_run(
     run_dir.mkdir(parents=True, exist_ok=True)
     adapter = MartianReviewAdapter() if task.suite == "martian" else SWEReviewAdapter()
     manifest_path = _manifest_path(task, root)
+    generation_settings = {key: getattr(profile, key) for key in ("temperature", "top_p", "seed", "stream", "repeat_penalty", "presence_penalty", "frequency_penalty", "structured_output")}
+    resume_fields = {
+        "prompt_sha256": prompt_sha256(adapter),
+        "selection_jsonl_sha256": _sha256(source),
+        "dataset_manifest_sha256": _sha256(manifest_path),
+        "context_policy": context_policy,
+        "generation_settings": generation_settings,
+        "model_artifact_sha256": (model_metadata or {}).get("sha256") or None,
+        "evaluation_version": "model-review-v2",
+    }
     manifest = {
         "experiment_id": experiment_id,
         "model_profile": task.model_profile,
@@ -129,22 +150,27 @@ def generate_review_run(
         "phase": "generate",
         "context_policy": context_policy,
         "max_context_tokens": profile.max_context_tokens,
-        "max_input_tokens": None,
         "max_input_chars": 100000 if context_policy == "common-100k-char-v1" else None,
         "max_output_tokens": profile.max_output_tokens,
-        "generation_settings": {key: getattr(profile, key) for key in ("temperature", "top_p", "seed", "stream", "repeat_penalty", "presence_penalty", "frequency_penalty", "structured_output")},
+        "generation_settings": generation_settings,
         "prompt_version": "model-only-v2",
         "prompt_sha256": prompt_sha256(adapter),
         "dataset_manifest_sha256": _sha256(manifest_path),
         "model_artifact": model_metadata or {},
         "limit": task.limit,
+        "resume_fingerprint": {**resume_fields, "sha256": _canonical_sha256(resume_fields)},
     }
     existing_manifest = run_dir / "run_manifest.json"
-    if existing_manifest.exists() and resume:
+    if existing_manifest.exists():
+        if not resume:
+            raise RuntimeError("run directory already contains a manifest; use --resume")
         old = json.loads(existing_manifest.read_text(encoding="utf-8"))
         if old.get("experiment_id") != experiment_id:
             raise RuntimeError("refusing to resume a run from another experiment_id")
-    _write_json(existing_manifest, manifest)
+        if old.get("resume_fingerprint") != manifest["resume_fingerprint"]:
+            raise RuntimeError("resume fingerprint mismatch; prompt, data, policy, settings, model artifact, or evaluation version changed")
+    else:
+        _write_json(existing_manifest, manifest)
     results_path = run_dir / "results.jsonl"
     completed: dict[int, dict[str, Any]] = {}
     if resume and results_path.exists():
@@ -171,13 +197,14 @@ def generate_review_run(
                     prepared_task["pr_body"] = record.get("pr_body", record.get("body", ""))
                 result = run_review_task(client, prepared_task, protocol="martian" if task.suite == "martian" else "swe", context_policy=context_policy)
             except Exception as exc:
-                result = {"status": "error", "error": str(exc), "answer": "", "review": {"format_valid": False, "schema_valid": False, "findings": []}}
+                result = {"status": "error", "error": str(exc), "answer": "", "review": {"format_valid": False, "schema_valid": False, "findings": []}, "request_attempts": int(getattr(client, "last_request_attempts", 0) or 0)}
             result.update({"index": index, "suite": task.suite, "model": task.model_profile, "language": item.get("language", "unknown")})
             if task.suite == "swe_review":
                 result.update({"instance_id": record.get("instance_id"), "generator_model": record.get("generator_model", "unknown"), "difficulty": record.get("difficulty", "unknown"), "expected_resolved": bool(record.get("resolved"))})
                 result["decision_correct"] = result.get("review", {}).get("decision") == ("approve" if bool(record.get("resolved")) else "request_changes")
             else:
-                result.update({"pr_url": record.get("url"), "golden_finding_count": len(record.get("comments") or [])})
+                sample_id, golden_record_sha256 = _golden_identity(record)
+                result.update({"sample_id": sample_id, "pr_url": record.get("url"), "golden_record_sha256": golden_record_sha256, "golden_finding_count": len(record.get("comments") or [])})
             output.write(json.dumps(result, ensure_ascii=False) + "\n")
             output.flush()
             completed[index] = result
@@ -196,12 +223,25 @@ def judge_martian_run(run_dir: Path, task: ExperimentTask, judge_profile: ModelP
     results_path = run_dir / "results.jsonl"
     rows = [json.loads(line) for line in results_path.read_text(encoding="utf-8").splitlines() if line.strip()]
     source_rows = [json.loads(line) for line in _selection_path(task, root).read_text(encoding="utf-8").splitlines() if line.strip()]
+    golden_by_id: dict[str, tuple[dict[str, Any], str]] = {}
+    for item in source_rows:
+        record = item.get("record", item)
+        sample_id, record_sha = _golden_identity(record)
+        if sample_id in golden_by_id:
+            raise RuntimeError(f"duplicate Martian sample_id: {sample_id}")
+        golden_by_id[sample_id] = (record, record_sha)
     judge = client_factory(judge_profile)
     for row in rows:
         if resume and isinstance(row.get("judge"), dict):
             continue
-        index = int(row["index"])
-        record = source_rows[index].get("record", source_rows[index])
+        sample_id = str(row.get("sample_id") or "")
+        if not sample_id or sample_id not in golden_by_id:
+            raise RuntimeError(f"Martian result has no matching stable sample_id: {sample_id or '<missing>'}")
+        record, current_sha = golden_by_id[sample_id]
+        if str(row.get("pr_url") or "") != str(record.get("url") or ""):
+            raise RuntimeError(f"Martian pr_url mismatch for sample_id {sample_id}")
+        if row.get("golden_record_sha256") != current_sha:
+            raise RuntimeError(f"Martian golden_record_sha256 mismatch for sample_id {sample_id}")
         try:
             row["judge"] = score_review(row.get("review", {}), record.get("comments") or [], judge)
         except Exception as exc:
@@ -246,6 +286,7 @@ def run_matrix(
     report_runner: Callable[..., dict[str, Path]] = generate_experiment_report,
 ) -> dict[str, Any]:
     config = load_experiment_config(config_path)
+    report = report or bool(config.get("report", False))
     experiment_id = str(config["experiment_id"])
     tasks = build_task_matrix(config)
     validations = []
@@ -276,8 +317,6 @@ def run_matrix(
     context_policy = str(config.get("context_policy", "common-100k-char-v1"))
     for model_id in [str(entry.get("profile") if isinstance(entry, dict) else entry) for entry in config["models"]]:
         model_tasks = [task for task in tasks if task.model_profile == model_id]
-        if all(state["tasks"][task.id]["status"] == "completed" for task in model_tasks):
-            continue
         entry = _model_entry(config, model_id)
         loaded_instance: str | None = None
         try:
@@ -303,8 +342,6 @@ def run_matrix(
             continue
         for task in model_tasks:
             task_state = state["tasks"][task.id]
-            if resume and task_state["status"] == "completed":
-                continue
             task_state.update({"status": "running", "error": None})
             _write_json(state_path, state)
             try:

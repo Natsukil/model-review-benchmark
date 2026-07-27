@@ -39,6 +39,53 @@ Return only JSON in this exact shape:
 {{"matches":[{{"golden_index":0,"candidate_index":0,"confidence":0.0,"reasoning":"brief explanation"}}]}}
 """
 
+MATCH_RESPONSE_SCHEMA = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "martian_judge_match_v1",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "match": {"type": "boolean"},
+                "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+                "reasoning": {"type": "string"},
+            },
+            "required": ["match", "confidence", "reasoning"],
+        },
+    },
+}
+
+BATCH_MATCH_RESPONSE_SCHEMA = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "martian_judge_batch_v1",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "matches": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "golden_index": {"type": "integer", "minimum": 0},
+                            "candidate_index": {"type": "integer", "minimum": 0},
+                            "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+                            "reasoning": {"type": "string"},
+                        },
+                        "required": ["golden_index", "candidate_index", "confidence", "reasoning"],
+                    },
+                }
+            },
+            "required": ["matches"],
+        },
+    },
+}
+
 
 def _content(response: dict[str, Any]) -> str:
     return str(((response.get("choices") or [{}])[0].get("message") or {}).get("content") or "")
@@ -51,6 +98,7 @@ def match_finding(judge: ModelClient, golden: str, candidate: str) -> dict[str, 
             {"role": "user", "content": MATCH_PROMPT.format(golden=golden, candidate=candidate)},
         ],
         temperature=0,
+        response_format=MATCH_RESPONSE_SCHEMA,
     )
     raw = _content(response)
     parsed = parse_json_object(raw)
@@ -108,6 +156,7 @@ def score_review(review: dict[str, Any], golden_comments: list[dict[str, Any]], 
             },
         ],
         temperature=0,
+        response_format=BATCH_MATCH_RESPONSE_SCHEMA,
     )
     raw = _content(response)
     parsed = parse_json_object(raw)
@@ -147,6 +196,10 @@ def score_review(review: dict[str, Any], golden_comments: list[dict[str, Any]], 
                 "reasoning": str(item.get("reasoning", "")),
             }
         )
+
+    if errors:
+        for error in errors:
+            error.setdefault("raw", raw)
 
     tp = len(matches)
     fp = len(candidates) - tp

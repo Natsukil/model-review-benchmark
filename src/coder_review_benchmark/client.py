@@ -14,7 +14,9 @@ class ModelClient:
     def __init__(self, profile: ModelProfile, timeout: int = 300, max_retries: int | None = None):
         self.profile = profile
         self.timeout = timeout
-        self.max_retries = max_retries if max_retries is not None else int(os.getenv("CBM_MODEL_MAX_RETRIES", "3"))
+        configured_retries = max_retries if max_retries is not None else int(os.getenv("CBM_MODEL_MAX_RETRIES", "1"))
+        self.max_retries = max(0, min(1, configured_retries))
+        self.last_request_attempts = 0
 
     def chat(
         self,
@@ -59,6 +61,7 @@ class ModelClient:
         started = time.perf_counter()
         last_error: Exception | None = None
         for attempt in range(self.max_retries + 1):
+            self.last_request_attempts = attempt + 1
             try:
                 with urllib.request.urlopen(request, timeout=self.timeout) as response:
                     payload = json.loads(response.read())
@@ -80,4 +83,5 @@ class ModelClient:
             time.sleep(min(2 ** attempt, 8))
         else:  # pragma: no cover - defensive; the loop always returns or raises
             raise RuntimeError(f"model request failed: {last_error}")
+        payload["_request_attempts"] = self.last_request_attempts
         return payload, time.perf_counter() - started

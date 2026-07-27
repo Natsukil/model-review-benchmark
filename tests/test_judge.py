@@ -1,11 +1,12 @@
-from coder_review_benchmark.judge import score_review
+from coder_review_benchmark.judge import BATCH_MATCH_RESPONSE_SCHEMA, score_review
 
 
 class DummyJudge:
     def __init__(self):
         self.calls = 0
 
-    def chat(self, messages, tools=None, temperature=0):
+    def chat(self, messages, tools=None, temperature=0, response_format=None):
+        assert response_format == BATCH_MATCH_RESPONSE_SCHEMA
         self.calls += 1
         return {
             "choices": [{"message": {"content": '{"matches":[{"golden_index":0,"candidate_index":0,"confidence":0.95,"reasoning":"same issue"}]}'}}]
@@ -42,7 +43,7 @@ def test_score_review_matches_findings():
 
 def test_score_review_rejects_duplicate_batch_matches():
     class DuplicateJudge:
-        def chat(self, messages, tools=None, temperature=0):
+        def chat(self, messages, tools=None, temperature=0, response_format=None):
             return {
                 "choices": [{"message": {"content": '{"matches":[{"golden_index":0,"candidate_index":0},{"golden_index":1,"candidate_index":0}]}'}}]
             }, 0.01

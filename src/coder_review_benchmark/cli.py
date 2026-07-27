@@ -195,7 +195,6 @@ def _run(suite: str, model_id: str, profile_name: str, limit: int | None, max_tu
         "evaluation_method": "official_image_tests_no_uploads" if suite == "agentic" else None,
         "evaluation_version": "model-review-v2" if suite in {"martian", "swe_review"} else ("official_image_tests_v1" if suite == "agentic" else "legacy"),
         "context_policy": context_policy if suite in {"martian", "swe_review"} else None,
-        "max_input_tokens": None,
         "max_input_chars": 100000 if suite in {"martian", "swe_review"} and context_policy == "common-100k-char-v1" else None,
         "output_reserved_tokens": 4096 if suite in {"martian", "swe_review"} else None,
         "structured_output": profile.structured_output if suite in {"martian", "swe_review"} else None,

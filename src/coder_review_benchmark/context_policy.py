@@ -6,8 +6,8 @@ import json
 from typing import Any
 
 MAX_INPUT_CHARS = 100_000
-CHAT_TEMPLATE_V1 = "<|im_start|>{role}\n{content}<|im_end|>\n"
-CHAT_TEMPLATE_SHA256 = hashlib.sha256(CHAT_TEMPLATE_V1.encode()).hexdigest()
+BENCHMARK_SERIALIZATION_SPEC = "canonical-json:utf-8;sort_keys=true;separators=(',',':');ensure_ascii=false"
+BENCHMARK_SERIALIZATION_SHA256 = hashlib.sha256(BENCHMARK_SERIALIZATION_SPEC.encode()).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -20,11 +20,7 @@ class ContextResult:
     sha256: str
     original_tokens: int | None
     final_tokens: int | None
-    template_sha256: str = CHAT_TEMPLATE_SHA256
-
-
-def apply_chat_template(messages: list[dict[str, Any]]) -> str:
-    return "".join(CHAT_TEMPLATE_V1.format(role=str(m.get("role", "")), content=str(m.get("content", ""))) for m in messages)
+    benchmark_serialization_sha256: str = BENCHMARK_SERIALIZATION_SHA256
 
 
 def messages_sha256(messages: list[dict[str, Any]]) -> str:

@@ -1,0 +1,41 @@
+experiment_id: qwen-review-smoke-v2
+evaluation_version: model-review-v2
+context_policy: common-100k-char-v1
+report: true
+
+models:
+  - profile: qwen2.5-coder-7b
+    artifact:
+      filename: ${QWEN25_CODER_7B_ARTIFACT_FILENAME:-}
+      sha256: ${QWEN25_CODER_7B_ARTIFACT_SHA256:-}
+      quantization: Q4_K_M
+  - profile: qwen3-coder-30b
+    artifact:
+      filename: ${QWEN3_CODER_30B_ARTIFACT_FILENAME:-}
+      sha256: ${QWEN3_CODER_30B_ARTIFACT_SHA256:-}
+      quantization: Q4_K_M
+  - profile: qwen3-coder-next-80b
+    artifact:
+      filename: ${QWEN3_CODER_NEXT_80B_ARTIFACT_FILENAME:-}
+      sha256: ${QWEN3_CODER_NEXT_80B_ARTIFACT_SHA256:-}
+      quantization: Q4_K_M
+
+datasets:
+  - suite: swe_review
+    profile: swe-review-balanced-500-v1
+    limit: 2
+  - suite: martian
+    profile: martian-offline-50-v1
+    limit: 2
+
+judge:
+  profile: judge
+  artifact:
+    filename: ${JUDGE_ARTIFACT_FILENAME:-}
+    sha256: ${JUDGE_ARTIFACT_SHA256:-}
+
+lifecycle:
+  enabled: false
+  base_url: ${LMSTUDIO_MANAGEMENT_BASE_URL:-http://127.0.0.1:1234}
+  api_key: ${LMSTUDIO_API_KEY:-}
+  timeout: 600

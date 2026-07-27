@@ -46,9 +46,11 @@ python -m coder_review_benchmark run \
 
 v2 的 SWE-Review 有两个互斥协议：`swe-review-balanced-500-v1` 是 500 个唯一 instance、250 resolved/250 unresolved 的主比较集；`swe-review-official-1384-v1` 保留三个生成器产生的全部非空候选 patch，允许重复 instance，是论文/完整协议。用 `validate-selection` 在运行前检查 JSONL 与 manifest 一致性。单模型服务固定使用 `--concurrency 1`；模型重试次数可用 `CBM_MODEL_MAX_RETRIES` 调整，GitHub PR diff 默认重试三次并缓存在 `data/cache/pr_diffs/`。
 
-v2 是固定上下文、单轮、无工具的 model-only 评测。当前冻结协议为 `common-100k-char-v1`：最多保留 100000 字符并确定性裁剪 Diff，Manifest 不宣称 token 预算，token 字段保持空值；同时记录字符数、截断原因及 template/user/messages SHA。接入可复现的真实 tokenizer 后才能启用并命名 `common-32k`。`native-context` 仅用于诊断，不应与主比较混用。
+v2 是固定上下文、单轮、无工具的 model-only 评测。当前冻结协议为 `common-100k-char-v1`：最多保留 100000 字符并确定性裁剪 Diff，Manifest 不宣称 token 预算，token 字段保持空值；同时记录字符数、截断原因、`benchmark_serialization_sha256`、`user_content_sha256` 和 `messages_sha256`。这里的序列化哈希只描述 Benchmark 的 canonical JSON 序列化，不代表服务端实际 Chat Template。接入可复现的真实 tokenizer 后才能启用并命名 `common-32k`。`native-context` 仅用于诊断，不应与主比较混用。
 
 公平赛道默认 `structured_output: true`，由每次请求的 `response_format` 发送 JSON Schema；如需执行 prompt-only-json 消融，可临时设置 `CBM_STRUCTURED_OUTPUT=false`，并将该设置记录在实验 manifest 中。
+
+正式运行前可使用独立的 2+2 smoke 配置（独立 experiment ID，三个模型顺序执行并生成报告）：`python -m coder_review_benchmark run-matrix --config configs/experiments/qwen-review-smoke.yaml --report`。不要将该 smoke 运行与正式 500+50 实验混用。
 
 SWE-Review 只允许 `approve`、`request_changes`（兼容别名 `reject`）；未知决策、错误类型、无效 JSON 和 schema 错误均为 invalid，不会被计入混淆矩阵。报告同时给出 format/schema completion、全体/有效样本准确率、balanced accuracy、defect recall、误放行/误拒绝率和 MCC。Martian 使用独立 judge 将候选 finding 与人工金标做一对一语义匹配，报告 raw TP/FP/FN、micro 与 per-PR macro 指标、零 finding PR、judge 错误率及仓库拆分。
 

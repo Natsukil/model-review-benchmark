@@ -60,7 +60,7 @@ def test_review_task_uses_4096_and_records_all_hashes():
             return {"choices": [{"message": {"content": '{"decision":"approve","summary":"ok","findings":[]}'}, "finish_reason": "stop"}]}, 0.01
 
     result = run_review_task(Dummy(), {"problem_statement": "issue", "model_patch": "diff --git a/a b/b\n"})
-    for key in ("template_sha256", "user_content_sha256", "messages_sha256"):
+    for key in ("benchmark_serialization_sha256", "user_content_sha256", "messages_sha256"):
         assert len(result[key]) == 64
     assert result["final_input_tokens"] is None
 

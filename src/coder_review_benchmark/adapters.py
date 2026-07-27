@@ -5,7 +5,7 @@ from pathlib import Path
 import hashlib
 
 from .config import ROOT
-from .context_policy import CHAT_TEMPLATE_SHA256, ContextResult, apply_context, messages_sha256
+from .context_policy import BENCHMARK_SERIALIZATION_SHA256, apply_context, messages_sha256
 
 PROMPT_VERSION = "model-only-v2"
 
@@ -21,7 +21,7 @@ class ReviewInput:
     truncation_reason: str | None
     original_input_tokens: int | None
     final_input_tokens: int | None
-    template_sha256: str
+    benchmark_serialization_sha256: str
     user_content_sha256: str
     messages_sha256: str
 
@@ -78,7 +78,7 @@ class SWEReviewAdapter:
         system = "You are a precise software reviewer. Follow the requested JSON schema exactly."
         ctx = apply_context(rendered, context_policy, diff=patch, system=system)
         messages = [{"role": "system", "content": system}, {"role": "user", "content": ctx.text}]
-        return ReviewInput(messages, PROMPT_VERSION, self.prompt_sha256, ctx.original_chars, ctx.final_chars, ctx.truncated, ctx.reason, ctx.original_tokens, ctx.final_tokens, CHAT_TEMPLATE_SHA256, ctx.sha256, messages_sha256(messages))
+        return ReviewInput(messages, PROMPT_VERSION, self.prompt_sha256, ctx.original_chars, ctx.final_chars, ctx.truncated, ctx.reason, ctx.original_tokens, ctx.final_tokens, BENCHMARK_SERIALIZATION_SHA256, ctx.sha256, messages_sha256(messages))
 
 
 class MartianReviewAdapter:
@@ -94,7 +94,7 @@ class MartianReviewAdapter:
         system = "You are a precise software reviewer. Follow the requested JSON schema exactly."
         ctx = apply_context(rendered, context_policy, diff=patch, system=system)
         messages = [{"role": "system", "content": system}, {"role": "user", "content": ctx.text}]
-        return ReviewInput(messages, PROMPT_VERSION, self.prompt_sha256, ctx.original_chars, ctx.final_chars, ctx.truncated, ctx.reason, ctx.original_tokens, ctx.final_tokens, CHAT_TEMPLATE_SHA256, ctx.sha256, messages_sha256(messages))
+        return ReviewInput(messages, PROMPT_VERSION, self.prompt_sha256, ctx.original_chars, ctx.final_chars, ctx.truncated, ctx.reason, ctx.original_tokens, ctx.final_tokens, BENCHMARK_SERIALIZATION_SHA256, ctx.sha256, messages_sha256(messages))
 
     @property
     def prompt_sha256(self) -> str:
