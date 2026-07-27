@@ -1,0 +1,15 @@
+suites:
+  balanced:
+    agentic: 80
+    codereviewqa: 140
+    martian: 20
+    swe_review: 10
+  agentic:
+    max_turns: 20
+    command_timeout_seconds: 120
+    total_timeout_seconds: 1800
+  review:
+    max_turns: 12
+    command_timeout_seconds: 60
+    total_timeout_seconds: 900
+

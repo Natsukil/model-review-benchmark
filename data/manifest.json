@@ -1,0 +1,610 @@
+{
+  "sources": {
+    "swe_review": {
+      "repo_id": "SWE-Lego/SWE-Review-Bench",
+      "snapshot_path": "C:\\workspace\\Code\\coder-review-benchmark\\data\\raw\\swe_review",
+      "files": [
+        {
+          "path": "data\\raw\\swe_review\\assets\\pipeline_overview.png",
+          "sha256": "dc56a2f1590c805418fb57853e1587d3add254a427ac351e234a33a38002b577"
+        },
+        {
+          "path": "data\\raw\\swe_review\\assets\\swe_review_icon.png",
+          "sha256": "93bb906873fd5233f203e08a58ac85efd9b109ff92e3df8d3cb98f8672f14795"
+        },
+        {
+          "path": "data\\raw\\swe_review\\data\\glm5_500-00000-of-00001.parquet",
+          "sha256": "381270ef9d097d3b86f4d6f72eb634ee2f331c8ed8cbd0dbc1f3b2c7923ab08b"
+        },
+        {
+          "path": "data\\raw\\swe_review\\data\\qwen3_30b_instruct2507_500-00000-of-00001.parquet",
+          "sha256": "1aa89b47948e8b984ec261aff20dc46b83475d324e0e3c8fe5bd5fcecfc8339f"
+        },
+        {
+          "path": "data\\raw\\swe_review\\data\\qwen3_coder_30b_500-00000-of-00001.parquet",
+          "sha256": "972ed2bbc7a471be1af320160fdcd4093b00e4d794f9f893c9607bb048712f1b"
+        }
+      ]
+    },
+    "martian": {
+      "repo_id": "withmartian/code-review-benchmark",
+      "snapshot_path": "C:\\workspace\\Code\\coder-review-benchmark\\data\\raw\\martian",
+      "files": [
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\.gitignore",
+          "sha256": "952d1e5b27f21c29bc4437347b12a0239cd4790c2ef6000b286d6ec05a2ef79b"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\LICENSE",
+          "sha256": "3d0f7aacf358c3578c1e541bdd297b675d76805e6bf3dddaf89b6d2b45e3afad"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\README.md",
+          "sha256": "5a5f3882f4a87cdd0a8655e1ddff7efff7b03c4931abf28816b8c69ac2266361"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\images\\dark.png",
+          "sha256": "887b0ad6dc5d5430b0ab22346a7faff3ffc1e3e3c88e98d39da819cafad5a40c"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\images\\light.png",
+          "sha256": "72e9212dfd1e40cdef02e1ff280560f5dafadc2a7d9040363d83965867227c30"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\methodology\\full.md",
+          "sha256": "686e2d5af807c6d7ede6e0b7b702a54c80e1471c1a0a992230255b31406234a0"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\methodology\\summary.md",
+          "sha256": "273babb4368ece1496164a7de14ab1ca3553e32aa439be5440f73f7a9834fb91"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\.env.example",
+          "sha256": "39f5976883332b326c8dfcd7d4da12c5e4c6579a3e50b0edd861e4232b4083b2"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\.gitignore",
+          "sha256": "e6356c6bb9121d048ac14cbd67a9d9b7519f5f113184fe92cec2baa6d79a81cf"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\pyproject.toml",
+          "sha256": "f5f91bfe5074babc830d699e4aa1445c5e8b6c7e13701cedc25d4153efd866cb"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\README.md",
+          "sha256": "96d658a18ae2c4a2b3510a13da6f8fc7e361e17af7f95a8624939f5b9e4fd2b7"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\uv.lock",
+          "sha256": "565e1d76f525915d47069dcaf57d998eded32c7bee4edd24867d533f7c197f4a"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\README.md",
+          "sha256": "32f1cbf0a2df9ff32e4b970fa2d0791f12fb2bf33935e92fbcff1e5d4cb59a12"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\.github\\workflows\\tests.yml",
+          "sha256": "5bfb5e7e014b2c15f09010c47eb49883d97a080fe88566d5e4b90b74ebeb9477"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\analysis\\benchmark_dashboard.html",
+          "sha256": "f76983fe58e3e290ee9f8433c8389cd52f47ef8bb5a5e012c6d6fd46a09de3b4"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\analysis\\benchmark_dashboard.json",
+          "sha256": "e4da2cf4d8b0fb758f1e07a2e8f0265d95bd44ea212dcce37646e477ebe29028"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\analysis\\benchmark_dashboard.py",
+          "sha256": "0c0a8e3f520946998e82352e0f5f3be81e6906143b29501d6a36836344658cee"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\code_review_benchmark\\step0_fork_prs.py",
+          "sha256": "fb7866bd088453a706470ab059b363f366122cd1ee2d1968e4d07c1eeabf6f03"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\code_review_benchmark\\step1_download_prs.py",
+          "sha256": "58069f36349d010bce7c9971904121719d77d731ad2cac041309287434411796"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\code_review_benchmark\\step2_5_dedup_candidates.py",
+          "sha256": "5438ffb2a487129bd0f85d5a8c43020efe5027ec2d1d51e599b9c1d9f743cd4c"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\code_review_benchmark\\step2_extract_comments.py",
+          "sha256": "d0b328d3953a3f68819ed530b1aafb594e7ad7cf09ef64e3b7e82d7bb221c800"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\code_review_benchmark\\step3_judge_comments.py",
+          "sha256": "95c639bc46ff27ef97299ad0f8d2e3cd71c002feee727f4ccb2371830b6994d3"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\code_review_benchmark\\step4_export_by_tool.py",
+          "sha256": "5c19abd75fb4615ce04357627b20a5c6a9aa289d739750372bed12f33c133f09"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\code_review_benchmark\\step5_label_prs.py",
+          "sha256": "f3a433eb268ee8056b2639263728721da875d931dfc65d2faf883707a6896db3"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\code_review_benchmark\\step_speed_analysis.py",
+          "sha256": "9d19c2a163402b4e669f9049673815b6d4321a2a7fff83c4cc0c67e97234cef8"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\code_review_benchmark\\summary_table.py",
+          "sha256": "d60bc01bf1d40442c9d4ae981ab006c94bdd233c98edf0ed8288a0e4749eed6e"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\code_review_benchmark\\__init__.py",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\golden_comments\\cal_dot_com.json",
+          "sha256": "a1361509202cdaea0842838cd03253b82345c85fde320480ef874084ab2af470"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\golden_comments\\discourse.json",
+          "sha256": "e18c62708f72066e5dc99eba05caf61572b73f93bdfa4c14374e56b44a1265a5"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\golden_comments\\grafana.json",
+          "sha256": "15055ffefa1714d60cd18aab46612497087240ae99f93170e91b226696bc8182"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\golden_comments\\keycloak.json",
+          "sha256": "a77fe83c5efbe50555d18083e58a65130882a293070c7fb79d1734223d6dcdc7"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\golden_comments\\sentry.json",
+          "sha256": "76027172aa33185222b963f66c74b9772321566f4faa4cfa6a2e32a63ec81f3c"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\results\\benchmark_data.json",
+          "sha256": "b0b17d5127ab04c1e68ef61da4ac0bf632abc763e29168e04e30a04ab02331aa"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\results\\pr_labels.json",
+          "sha256": "11696fd64bead12e95d0a4f6929a6cbe5f5a85a154ef44eb63688ee8972b91ed"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\scripts\\claude_clone_and_review.clj",
+          "sha256": "68f2fe3b81cfe0cd4151330baf8510f4054419268aa3bc5bc3bf6a72f091bb6b"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\tests\\conftest.py",
+          "sha256": "c719fa2241bf51405c0f9675cbc7e4cbc6fe7f58e765e4be72a4ddc0c57bcc03"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\tests\\test_step0.py",
+          "sha256": "d210a13e09d10158bd2f9b036d9c3ec11dfdb37518e6f727d708180ea30c043b"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\tests\\test_step1.py",
+          "sha256": "0b7cf0e4466ded462251134d85ef84d6cd7057ee7739f72307db45230b7ef0d5"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\tests\\test_step2.py",
+          "sha256": "5fba7782114fc8a0e965507a23aaf3eb6969c72fc1e8b9532e2e2794912aad9e"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\tests\\test_step3.py",
+          "sha256": "9c0a696ad3971708bfc2a8dfab259ba744365a235c176003078c9bdf3cbe9d0b"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\tests\\test_step4.py",
+          "sha256": "d9a03eb9684ec8e54e77bae07bd22073a45471524aa123cdc90a99214ef9bccb"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\tests\\test_step5.py",
+          "sha256": "2eacd66422563345cc0b6a6044363e2dee3dc23aa3131d6ad2e77e3fa3660a52"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\code_review_benchmark\\__pycache__\\step0_fork_prs.cpython-312.pyc",
+          "sha256": "afeeb4ce568246527dd6c44695f07679e6e9569620b76c3bfd3cfcfdaa313dcc"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\code_review_benchmark\\__pycache__\\step1_download_prs.cpython-312.pyc",
+          "sha256": "49904ca263ea7b39baaf766fe35a3e339315b0d7b38e08474180205216bc419c"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\code_review_benchmark\\__pycache__\\step2_extract_comments.cpython-312.pyc",
+          "sha256": "7dcb32d8f730fbfe8eb4dcdc901c2843d9156d086867d4cd90a61aa1882a5e9a"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\code_review_benchmark\\__pycache__\\step3_judge_comments.cpython-312.pyc",
+          "sha256": "d0ee09efdf29498cc7982c330addcf7c96df605a445cc5ab885bf8dc915a51e7"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\code_review_benchmark\\__pycache__\\step4_export_by_tool.cpython-312.pyc",
+          "sha256": "8ccb93ea04e012c2e446abf9698f3431ab6d4bc6600e95cb74f907ac986909d1"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\code_review_benchmark\\__pycache__\\step5_label_prs.cpython-312.pyc",
+          "sha256": "1e588280ab2cb640f70e2e7b195eee605708108e376218754c97c46eba940797"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\code_review_benchmark\\__pycache__\\__init__.cpython-312.pyc",
+          "sha256": "cf14919215a73de67d574a9aca2416ac3c21143f3b3cca3b3cf2e7ecda485bb0"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\results\\anthropic_claude-opus-4-5-20251101\\candidates.json",
+          "sha256": "c4f11d75c824514d508fa7c51778df3512965eea2b0b255ec1f20edc00b43f03"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\results\\anthropic_claude-opus-4-5-20251101\\evaluations.json",
+          "sha256": "ae630bbc360882c9390ed6834c999162fe0860297aea3081c4b7483e376128c1"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\results\\anthropic_claude-sonnet-4-5-20250929\\candidates.json",
+          "sha256": "4fdd61e9e6000bb930d2afff9586885d5bcc04ed5f58a5ee945aa125325fedc9"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\results\\anthropic_claude-sonnet-4-5-20250929\\evaluations.json",
+          "sha256": "408a07c68754ae365fbdafac07c6b34e820026b0e286f7a4bbc8e81a4d47fbaa"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\results\\openai_gpt-5.2\\candidates.json",
+          "sha256": "65d2de0f2c440479d801e38acbef79c487a15499061b1890426a27335850f55d"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\results\\openai_gpt-5.2\\evaluations.json",
+          "sha256": "79c96d9a95c380c580c268eefd51662517abb5622fb8770d5165293d2bc84536"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\tests\\__pycache__\\conftest.cpython-312-pytest-9.1.1.pyc",
+          "sha256": "40d7271b626834b32c0f234f769c368d58d92dfaba68b57208bd0a07541ef4aa"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\tests\\__pycache__\\test_step0.cpython-312-pytest-9.1.1.pyc",
+          "sha256": "7e6544cc1e78a1f0ebfdf0486c56ec009f514affe2f5ac9edbf657cec804ef31"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\tests\\__pycache__\\test_step1.cpython-312-pytest-9.1.1.pyc",
+          "sha256": "1692d91afe0e283bed1c78600828b33992960f3ebeeaf5944b353730a06e109b"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\tests\\__pycache__\\test_step2.cpython-312-pytest-9.1.1.pyc",
+          "sha256": "c05f2fdcfe2422db597868eda5a462a1eca07d505072aab66e4e7e05b17d0dfe"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\tests\\__pycache__\\test_step3.cpython-312-pytest-9.1.1.pyc",
+          "sha256": "179700894689a875cf19ff5a5e582c5171d6ba7a244710fe7edf6dbb819c1111"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\tests\\__pycache__\\test_step4.cpython-312-pytest-9.1.1.pyc",
+          "sha256": "515305cf0539af5e08dbffdd818ab9948c7b145a0b3cc0d077a60affa85b4004"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\offline\\tests\\__pycache__\\test_step5.cpython-312-pytest-9.1.1.pyc",
+          "sha256": "39fa510be83c84b4ab8ef47e1deafbd52956b043c3b464be09456befd03c6c75"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\api_service\\.dockerignore",
+          "sha256": "aefca26ff2d89bb13b4fde7a00adb3b487a04dc5538e93eb509371ca8c10e31f"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\api_service\\Cargo.lock",
+          "sha256": "e7a7d773ca03f3b2f1231034b664383b7a2d7ce20c7aea5b666a03b72757c204"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\api_service\\Cargo.toml",
+          "sha256": "9d7da1788b54c3bd62d6ce18bf1b4ba78a011f4594ec1574c39fc833e38c710b"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\api_service\\Dockerfile",
+          "sha256": "120066f54e7fbb968c9077b19b404ec4ecd249113b399bddd6ba9b297d835627"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\api_service\\README.md",
+          "sha256": "2ca47baa59c4a84d81a5c24f83f3dc07e9be036e03a4d7e3641578079053a0eb"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\.env.example",
+          "sha256": "9e6679c969307932aefd117f7e6b1fb879fb3f035f5573eac19b0329ba307336"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\.python-version",
+          "sha256": "02e735b3dfe1c32833eb550b7ff8ffa17f5f2bc3fa1e7bae61a8f5a3883ce398"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\config.py",
+          "sha256": "551a7d561ce9045039dba49db80f7bf2e272b3ac3d4324c35eeb47f96157a3a4"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\main.py",
+          "sha256": "edec26cc31dd8600b9b88194bebcdf2619cad96c7470c9a1183cd51211ad8204"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\pyproject.toml",
+          "sha256": "6f6e8750d2316bca36c4f602d1a7dc6cf803d8695176d7213a9cb82fd3f4d2ab"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\README.md",
+          "sha256": "9e690751e55e0e86949bfac396a9fc22102f274e58ccf1655ec2584ff056dcd2"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\uv.lock",
+          "sha256": "992f04843db940e7ee2303723cbf1ce50e8ec4390b035ec97dc566a5abaea62a"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\api_service\\src\\compute.rs",
+          "sha256": "5deb1033014a54fcc3f06993c394a5c7c79120603cdb6018beb111ece80cd0c3"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\api_service\\src\\db.rs",
+          "sha256": "ff75583d7e77d7ca12b9c242eeec008f7eb0d2d80207029d1b17e00e2047d2f9"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\api_service\\src\\handlers.rs",
+          "sha256": "4cce27265b1d942497db8e6cf38170af415b8583992a0877f6aa81fc7c936253"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\api_service\\src\\main.rs",
+          "sha256": "dbf25a2363a7f4f6e69950138d2bfa3f73310d778cc83e2f709f567394ba3577"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\api_service\\src\\model.rs",
+          "sha256": "f60d1edc4cc89b19cff5bb357dced5cc40371bda91217709d076eb61ad7ca7b8"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\api_service\\src\\tests.rs",
+          "sha256": "5c1085aad3bafbb9d3e43ecc6eaba5e1304a2d80600a45db791c0bc70bc0d456"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\api_service\\static\\index.html",
+          "sha256": "0f1629dbe161e41ebfa64af96c4349f299fa7894130b0fcfc7ce4753553c152a"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\dashboard\\app.py",
+          "sha256": "ac8366e96d820be4052b3028b70a567faea1dfe3aeb1625dc93aaef5f731f91c"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\dashboard\\data.py",
+          "sha256": "656361dc2d292fb7a107cb9e94a0e0f70fa389727d1169ed4f4e7aeb0cf924d7"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\dashboard\\plots.py",
+          "sha256": "52b4da7a21885ba8eaabf254951151b3df56822b8e33f4c18b6f57f16926a2ae"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\dashboard\\__init__.py",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\db\\connection.py",
+          "sha256": "93c92ef87de9b93332f45ac188b46e04bfd2ee3c9a751c0fecc125bb5480f4ac"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\db\\queries.py",
+          "sha256": "65f870f1cabd6589043f7e1bcb10fc190950a5eaa9527a9e78eb760485a0c67b"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\db\\repository.py",
+          "sha256": "d6b65e1121866c5c2af855676458781a9f5ad76dd0b459dd73bc95032bf8f39c"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\db\\schema.py",
+          "sha256": "aa69c868c0cc09a68436fc0f4c0eb7d4a5811380374e539a977ff3d2db17a683"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\db\\__init__.py",
+          "sha256": "f020b03713c26b68b08d54ff9dae9c2596ba2eef039e35dff9857485f2466b80"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\jobs\\analyze_job.py",
+          "sha256": "d208cb229ca420e1920f75c6672fe818159631fa2930522262f6cba0163fe05e"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\jobs\\discover_job.py",
+          "sha256": "2ae7f289cde622f5d62c2f2c9fd671639e393954de75f2537b0d47cac67a6c2b"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\jobs\\enrich_job.py",
+          "sha256": "f2c032ef200456e0519ec70ff651cba77c93982ba58ba5cf2f6ed1f301d4ebf6"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\jobs\\__init__.py",
+          "sha256": "c5c1031eec9b1f7da685586bdc45b2001ef11d3c58e51032fbbc04210c6d8989"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\llm\\client.py",
+          "sha256": "388e5c3c13441fd4117100e671c56f4a1042d2dd1db06895a792c9505c2895a9"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\llm\\prompts.py",
+          "sha256": "b958a28f23ef747683c69877ea54e0b84b91cf89032bde62a5294439c61d0ef6"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\llm\\schemas.py",
+          "sha256": "01fde3633f8917ed50f767a59e443626029da6d6684e879ccd763b2d4b47d082"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\llm\\__init__.py",
+          "sha256": "beb21cd6e7822ea46c34dcefbe38c0d8ca639086df00eebcafa875302a9fca7b"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\migration\\002_metrics_columns.sql",
+          "sha256": "be23f618fb9625cede3b0de0483c56f735df58ae286e96d4babfd5e229a93aea"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\migration\\import_filesystem.py",
+          "sha256": "a9b18e42c33ce34ab90d3e8e19268d59f73cc9c2a2acd31f40c1cffbd522835f"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\migration\\__init__.py",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\pipeline\\actors.py",
+          "sha256": "6bd257c256d02ed81ae1b8fbd89eb35a77ac85cd14320a6c3e2607a0b2aa0798"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\pipeline\\analyze.py",
+          "sha256": "cfba07bf809bba6c834ca5a4ddef2d87356cdb0f480a31a93535279c55acaa30"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\pipeline\\assemble.py",
+          "sha256": "775bdcbb57b6a74e3f5cced952e7bf2345996bc3e6fe623c0478fcacb2e1be40"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\pipeline\\backfill_pr_author.py",
+          "sha256": "832b1496c6b88c1c24a159a22aaa3ac4277b2e14c75a54c98e71022d7644875a"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\pipeline\\discover.py",
+          "sha256": "c14093fb6bff06e23c2773b6bfe1ace7bb3810c8f2bb4d3a8c1772703928c45a"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\pipeline\\enrich.py",
+          "sha256": "def994b0a66e160af17d459bcba76c0588a8bc704d7146e4186349d735696c7f"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\pipeline\\label.py",
+          "sha256": "3dc446fd75cd53c0bd86bb071ede3e252e213ca2188a21afbeb15b51f9300262"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\pipeline\\quality.py",
+          "sha256": "b3fe19e54fa4ea5ec548af133e4a6683297a8e557b90b79f5e255ab3e7ad483e"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\pipeline\\volumes.py",
+          "sha256": "8945669e6f3cfcb916d46a014f52b3c07ca670747650f3a2a0443316cff513b6"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\pipeline\\__init__.py",
+          "sha256": "88eadfee3660ca4f81749aaed4365a42aac65dcd683de260f5bd546a76e63451"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\tests\\test_actor_normalization.py",
+          "sha256": "52b3e63ca3b6a8d0ed1d12278ee75ff0f8936001e3ba805a7cbbe4df1c262efc"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\tests\\test_assemble.py",
+          "sha256": "df626a851952367fd7ff3abb3c1daa2fbb83f901e946ba02c22ff9c4f7551a86"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\tests\\test_backfill_pr_author.py",
+          "sha256": "16fbd68f0c630309bfe37adb080869bb16547a89d092508826553bd1ffcfd3af"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\tests\\test_connection.py",
+          "sha256": "269f0ad0d5fc4da60ae175d1a76d5911c8677bcf7245525859d1cb8dfd2342be"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\tests\\test_discover.py",
+          "sha256": "5bb79faf987d431837dc79d58ba3b72730a92b53425194150499ac7944f79c38"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\tests\\test_label.py",
+          "sha256": "f794dda84da133f216b66433c64bc2df694efaf8ba9b5fdf8cb9fb331de8d076"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\tests\\test_main.py",
+          "sha256": "54f73b115ec310c15f87ea2b9cd6effaf72e6fa93a7770461b959b1540fd1c71"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\tests\\test_pr_author_extraction.py",
+          "sha256": "161dc8a7fe28bf36978e6000fabec29730f65eff21c71068960cd7357659b539"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\tests\\test_quality_signals.py",
+          "sha256": "e4f358e6df511e5c5b840bf257ad0d33b91b1b7eba304eb072e4bf34b17bc9bf"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\tests\\test_repository.py",
+          "sha256": "e66f24f22f8eff8f843a290a145522962b3ab33c28ba9960ae790a0985b42ba4"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\tests\\test_schemas.py",
+          "sha256": "b1b9816a91e30f9a1be4f78613d938331b097a9a25d41521f57754f9f3914050"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\tests\\test_volumes.py",
+          "sha256": "7018a88cc09a2947c838b210a78adce292e29f04d899b596fb929cd87ee5e566"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\tests\\__init__.py",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\__pycache__\\config.cpython-312.pyc",
+          "sha256": "f37ad6de6b3845b3aea48a6e6346ac6335b9582370e2995c7b1a630183bac7e9"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\__pycache__\\main.cpython-312.pyc",
+          "sha256": "6ab07da7096b4fac15814ab95f1ff3f7e0e22bf81b3faec491afff5c5ddc56c0"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\pipeline\\__pycache__\\actors.cpython-312.pyc",
+          "sha256": "8736fb50126112291a6f0ff965fe46b3213a9d304828e2e86092f0e5d026c444"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\pipeline\\__pycache__\\analyze.cpython-312.pyc",
+          "sha256": "d9622e52d13eb59eea7c904f07e32d33b7e63d1175e451ef5146869bc67eacf8"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\pipeline\\__pycache__\\label.cpython-312.pyc",
+          "sha256": "be49c099a09584cdf896336901a14f6166d879ab76b8a45e7afc7e415ac61880"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\pipeline\\__pycache__\\__init__.cpython-312.pyc",
+          "sha256": "4c44ecf466d1956f4dea16aa38e30580c89eacba21a6953cce8f53bde61d14e5"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\tests\\__pycache__\\test_actor_normalization.cpython-312-pytest-9.1.1.pyc",
+          "sha256": "850413e8f4c30e0d55183b8063ab37812729c7090af46a7bf437ece5449dd7d5"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\tests\\__pycache__\\test_assemble.cpython-312-pytest-9.1.1.pyc",
+          "sha256": "357a8e16e5a621737fa3eb23a94b1422559c84260e9d32ae831be452b897a7dc"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\tests\\__pycache__\\test_backfill_pr_author.cpython-312-pytest-9.1.1.pyc",
+          "sha256": "e336d79899119e29fd6898fbc51ea4fefd595709c7c65491bf0f7ef3b510e862"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\tests\\__pycache__\\test_connection.cpython-312-pytest-9.1.1.pyc",
+          "sha256": "353ee0616fe46aad63cd457900e911f46edfe874e123ce8229f9a0e1c867bf62"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\tests\\__pycache__\\test_discover.cpython-312-pytest-9.1.1.pyc",
+          "sha256": "8e3e8eb6fc22211bd28f910470b9005f247c88c98829257bcd3af0324a41c2fd"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\tests\\__pycache__\\test_label.cpython-312-pytest-9.1.1.pyc",
+          "sha256": "dd2d6a0c6804d6e1a9d91ff4e19bbc1ae32c0103fc426f2bd9c559354c56a3cd"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\tests\\__pycache__\\test_main.cpython-312-pytest-9.1.1.pyc",
+          "sha256": "053a78a5379c5ace8ba872c46c66c8bf2cbd3cf87096ccd78f35f747e2c57fd4"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\tests\\__pycache__\\test_pr_author_extraction.cpython-312-pytest-9.1.1.pyc",
+          "sha256": "405bbb0d6fdc6fa89a2f69ce9d6eae746893d7baa5b50f06d15b5c33bb19eb1d"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\tests\\__pycache__\\test_quality_signals.cpython-312-pytest-9.1.1.pyc",
+          "sha256": "9d356b49932d5c3d740117ab4e88a1a15814b4af97c5e80bba07aa22e73ab057"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\tests\\__pycache__\\test_repository.cpython-312-pytest-9.1.1.pyc",
+          "sha256": "5f2498f94e43d2ec5dc155c437ccf923654eb6dd5f3ae089e27ed03e38259a24"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\tests\\__pycache__\\test_schemas.cpython-312-pytest-9.1.1.pyc",
+          "sha256": "4052e1f1617d9d0fb48177acbb0bc8f42efd8ba7dd9819da1123cd7b8e89d1e7"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\tests\\__pycache__\\test_volumes.cpython-312-pytest-9.1.1.pyc",
+          "sha256": "2a192376892395283058db62b3ee273dd5484dee127e4a04bc003ea1b925e7b6"
+        },
+        {
+          "path": "data\\raw\\martian\\code-review-benchmark-main\\online\\etl\\tests\\__pycache__\\__init__.cpython-312.pyc",
+          "sha256": "31a14ce66f5c02135d03a2acb6c49b911ce1597969b25d8e7884d1735c7a22d8"
+        }
+      ]
+    }
+  },
+  "blocked": {},
+  "generated_by": "coder-review-benchmark"
+}

@@ -1,0 +1,38 @@
+{
+  "profile": "review-hour",
+  "selection_policy": "review_first_stratified",
+  "seed": 20260724,
+  "max_patch_chars": 40000,
+  "swe_review": {
+    "selected_count": 500,
+    "unique_instances": 500,
+    "generator_counts": {
+      "GLM-5-FP8": 163,
+      "Qwen/Qwen3-30B-A3B-Instruct-2507": 164,
+      "Qwen/Qwen3-Coder-30B-A3B-Instruct": 173
+    },
+    "resolved_counts": {
+      "false": 250,
+      "true": 250
+    },
+    "difficulty_counts": {
+      "15 min - 1 hour": 261,
+      ">4 hours": 3,
+      "<15 min fix": 194,
+      "1-4 hours": 42
+    }
+  },
+  "martian": {
+    "selected_count": 50,
+    "golden_comment_count": 136,
+    "repo_counts": {
+      "ai-code-review-evaluation/discourse-graphite": 10,
+      "ai-code-review-evaluation/keycloak-greptile": 1,
+      "ai-code-review-evaluation/sentry-greptile": 4,
+      "calcom/cal.com": 10,
+      "getsentry/sentry": 6,
+      "grafana/grafana": 10,
+      "keycloak/keycloak": 9
+    }
+  }
+}
