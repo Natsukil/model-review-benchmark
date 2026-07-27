@@ -73,7 +73,9 @@ def collect_runs(outputs_dir: Path) -> list[dict[str, Any]]:
             "model_profile": model_profile,
             "model_name": manifest.get("model_name") or model_profile,
             "suite": suite,
-            "profile": manifest.get("profile") or "legacy",
+            "profile": manifest.get("dataset_profile") or manifest.get("profile") or "legacy",
+            "dataset_profile": manifest.get("dataset_profile") or manifest.get("profile") or "legacy",
+            "experiment_id": manifest.get("experiment_id"),
             "evaluation_version": manifest.get("evaluation_version") or (
                 "batch-one-to-one-v1" if "judge_calls" in metrics else "legacy"
             ),
@@ -95,10 +97,10 @@ def collect_runs(outputs_dir: Path) -> list[dict[str, Any]]:
             "request_changes_rate": metrics.get("request_changes_rate"),
             "invalid_decision_rate": metrics.get("invalid_decision_rate"),
             "average_findings": metrics.get("average_findings"),
-            "approved_resolved": confusion.get("approved_resolved"),
-            "approved_unresolved": confusion.get("approved_unresolved"),
-            "rejected_resolved": confusion.get("rejected_resolved"),
-            "rejected_unresolved": confusion.get("rejected_unresolved"),
+            "approve_resolved": confusion.get("approve_resolved"),
+            "request_changes_resolved": confusion.get("request_changes_resolved"),
+            "approve_unresolved": confusion.get("approve_unresolved"),
+            "request_changes_unresolved": confusion.get("request_changes_unresolved"),
             "precision": metrics.get("precision"),
             "recall": metrics.get("recall"),
             "f1": metrics.get("f1"),
@@ -172,9 +174,9 @@ def _comparison_rows(selected: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "swe_completion": swe.get("completion_rate"),
             "swe_accuracy": swe.get("decision_accuracy"),
             "swe_defect_recall": swe.get("defect_recall") if swe.get("defect_recall") is not None else (
-                swe.get("rejected_unresolved") / (swe.get("rejected_unresolved") + swe.get("approved_unresolved"))
-                if swe.get("rejected_unresolved") is not None and swe.get("approved_unresolved") is not None
-                and swe.get("rejected_unresolved") + swe.get("approved_unresolved") else None
+                swe.get("request_changes_unresolved") / (swe.get("request_changes_unresolved") + swe.get("approve_unresolved"))
+                if swe.get("request_changes_unresolved") is not None and swe.get("approve_unresolved") is not None
+                and swe.get("request_changes_unresolved") + swe.get("approve_unresolved") else None
             ),
             "martian_samples": martian.get("sample_count"),
             "martian_completion": martian.get("completion_rate"),

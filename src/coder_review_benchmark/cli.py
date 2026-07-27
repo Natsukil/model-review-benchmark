@@ -18,9 +18,8 @@ from .client import ModelClient
 from .aggregate import summarize_runs
 from .report import write_report
 from .runner import run_agent_task, run_review_task
-from .scoring import calculate_martian_metrics, calculate_swe_metrics, normalize_decision
+from .scoring import calculate_swe_metrics, normalize_decision
 from .adapters import MartianReviewAdapter, SWEReviewAdapter, prompt_sha256
-from .judge import score_review
 from .tools import DockerWorkspace, evaluate_patch_in_image
 
 
@@ -43,12 +42,17 @@ def _parser() -> argparse.ArgumentParser:
     validate.add_argument("--suite", default="swe_review", choices=["swe_review", "martian"])
     doctor = sub.add_parser("doctor"); doctor.add_argument("--profile", default="balanced")
     probe = sub.add_parser("probe"); probe.add_argument("--model", required=True)
-    run = sub.add_parser("run"); run.add_argument("--suite", required=True); run.add_argument("--model", required=True); run.add_argument("--profile", default="balanced"); run.add_argument("--concurrency", type=int, default=1); run.add_argument("--limit", type=int); run.add_argument("--max-turns", type=int, default=20); run.add_argument("--context-policy", choices=["common-32k", "native-context"], default="common-32k")
+    run = sub.add_parser("run"); run.add_argument("--suite", required=True); run.add_argument("--model", required=True); run.add_argument("--profile", default="balanced"); run.add_argument("--concurrency", type=int, default=1); run.add_argument("--limit", type=int); run.add_argument("--max-turns", type=int, default=20); run.add_argument("--context-policy", choices=["common-100k-char-v1", "native-context"], default="common-100k-char-v1"); run.add_argument("--experiment-id")
     rep = sub.add_parser("report"); rep.add_argument("--run-dir", type=Path, required=True)
     summary = sub.add_parser("summarize")
     summary.add_argument("--outputs-dir", type=Path, default=ROOT / "outputs")
     summary.add_argument("--output-dir", type=Path, default=ROOT / "reports")
     summary.add_argument("--profile", default="review-hour")
+    matrix = sub.add_parser("run-matrix")
+    matrix.add_argument("--config", type=Path, required=True)
+    matrix.add_argument("--resume", action="store_true")
+    matrix.add_argument("--report", action="store_true")
+    matrix.add_argument("--dry-run", action="store_true")
     return p
 
 
@@ -154,7 +158,7 @@ def _swe_review_breakdown(rows: list[dict[str, object]], key: str) -> dict[str, 
     return result
 
 
-def _run(suite: str, model_id: str, profile_name: str, limit: int | None, max_turns: int = 20, context_policy: str = "common-32k") -> None:
+def _run(suite: str, model_id: str, profile_name: str, limit: int | None, max_turns: int = 20, context_policy: str = "common-100k-char-v1", experiment_id: str | None = None) -> None:
     if max_turns <= 0:
         raise ValueError("max_turns must be positive")
     if suite == "agentic":
@@ -165,8 +169,7 @@ def _run(suite: str, model_id: str, profile_name: str, limit: int | None, max_tu
         if docker_probe.returncode != 0:
             raise RuntimeError("agentic evaluation requires a running Docker daemon; run `doctor` first")
     profile = get_model_profile(model_id)
-    judge_profile = get_model_profile("judge") if suite == "martian" else None
-    judge_client = ModelClient(judge_profile, timeout=60) if judge_profile else None
+    judge_profile = None  # Martian judging is intentionally deferred to run-matrix.
     selection_dir = ROOT / "data" / "selections" / profile_name
     source = selection_dir / ("codereviewqa.jsonl" if suite == "codereviewqa" else f"{suite}.jsonl")
     if not source.exists():
@@ -178,6 +181,7 @@ def _run(suite: str, model_id: str, profile_name: str, limit: int | None, max_tu
     if not dataset_manifest.exists():
         dataset_manifest = selection_dir / "review_manifest.json"
     manifest = {
+        "experiment_id": experiment_id or f"standalone-{run_dir.name}",
         "suite": suite,
         "profile": profile_name,
         "model_profile": model_id,
@@ -191,13 +195,14 @@ def _run(suite: str, model_id: str, profile_name: str, limit: int | None, max_tu
         "evaluation_method": "official_image_tests_no_uploads" if suite == "agentic" else None,
         "evaluation_version": "model-review-v2" if suite in {"martian", "swe_review"} else ("official_image_tests_v1" if suite == "agentic" else "legacy"),
         "context_policy": context_policy if suite in {"martian", "swe_review"} else None,
-        "max_input_tokens": 28672 if suite in {"martian", "swe_review"} and context_policy == "common-32k" else None,
+        "max_input_tokens": None,
+        "max_input_chars": 100000 if suite in {"martian", "swe_review"} and context_policy == "common-100k-char-v1" else None,
         "output_reserved_tokens": 4096 if suite in {"martian", "swe_review"} else None,
         "structured_output": profile.structured_output if suite in {"martian", "swe_review"} else None,
         "prompt_version": "model-only-v2" if suite in {"martian", "swe_review"} else None,
         "prompt_sha256": prompt_sha256(review_adapter) if suite in {"martian", "swe_review"} else None,
         "dataset_manifest_sha256": _file_sha256(dataset_manifest),
-        "sampling": {"temperature": profile.temperature, "top_p": profile.top_p, "seed": profile.seed, "stream": profile.stream, "repeat_penalty": profile.repeat_penalty, "presence_penalty": profile.presence_penalty, "frequency_penalty": profile.frequency_penalty},
+        "generation_settings": {"temperature": profile.temperature, "top_p": profile.top_p, "seed": profile.seed, "stream": profile.stream, "repeat_penalty": profile.repeat_penalty, "presence_penalty": profile.presence_penalty, "frequency_penalty": profile.frequency_penalty, "structured_output": profile.structured_output},
         "model_artifact": {"filename": os.getenv("CBM_MODEL_ARTIFACT_FILENAME"), "sha256": os.getenv("CBM_MODEL_ARTIFACT_SHA256"), "quantization": os.getenv("CBM_MODEL_QUANTIZATION"), "serving_engine": os.getenv("CBM_SERVING_ENGINE"), "serving_engine_version": os.getenv("CBM_SERVING_ENGINE_VERSION"), "chat_template": os.getenv("CBM_CHAT_TEMPLATE")},
         "dataset_profile": profile_name,
         "environment": {"qwen_base_url": profile.base_url, "judge_base_url": judge_profile.base_url if judge_profile else None},
@@ -239,8 +244,6 @@ def _run(suite: str, model_id: str, profile_name: str, limit: int | None, max_tu
                     result["evaluation"] = evaluate_patch_in_image(
                         image, str(task["repo"]), model_patch, timeout=evaluation_timeout
                     )
-                if suite == "martian" and judge_client:
-                    result["judge"] = score_review(result["review"], task["comments"], judge_client)
                 if suite == "swe_review":
                     result["decision_correct"] = result.get("review", {}).get("decision") == ("approve" if bool(task.get("resolved")) else "request_changes")
                     result.update(
@@ -275,8 +278,7 @@ def _run(suite: str, model_id: str, profile_name: str, limit: int | None, max_tu
     wall_elapsed = time.monotonic() - run_started
     model_elapsed = sum(float(row.get("elapsed") or 0.0) for row in rows)
     if suite == "martian":
-        metrics = calculate_martian_metrics(rows)
-        metrics.update({"suite": suite, "judge_model": judge_profile.model_name if judge_profile else None, "completion_rate": sum(row.get("status") == "completed" for row in rows) / len(rows) if rows else 0.0, "model_elapsed_seconds": model_elapsed, "judge_elapsed_seconds": sum(float(row.get("judge", {}).get("judge_elapsed", 0.0)) for row in rows), "wall_elapsed_seconds": wall_elapsed})
+        metrics = {"suite": suite, "phase": "generate", "sample_count": len(rows), "format_completion_rate": sum(bool(row.get("review", {}).get("format_valid")) for row in rows) / len(rows) if rows else 0.0, "schema_completion_rate": sum(bool(row.get("review", {}).get("schema_valid")) for row in rows) / len(rows) if rows else 0.0, "completion_rate": sum(row.get("status") == "completed" for row in rows) / len(rows) if rows else 0.0, "average_findings": sum(len(row.get("review", {}).get("findings", [])) for row in rows) / len(rows) if rows else 0.0, "zero_finding_prs": sum(not row.get("review", {}).get("findings") for row in rows), "model_elapsed_seconds": model_elapsed, "wall_elapsed_seconds": wall_elapsed}
         (run_dir / "metrics.json").write_text(json.dumps(metrics, indent=2), encoding="utf-8")
     elif suite == "swe_review":
         metrics = calculate_swe_metrics(rows)
@@ -332,7 +334,7 @@ def main(argv: list[str] | None = None) -> int:
     elif args.command == "run":
         if args.concurrency != 1:
             raise ValueError("only --concurrency 1 is currently supported; this protects single-model deployments")
-        _run(args.suite, args.model, args.profile, args.limit, args.max_turns, args.context_policy)
+        _run(args.suite, args.model, args.profile, args.limit, args.max_turns, args.context_policy, args.experiment_id)
     elif args.command == "prepare-review-v2":
         print(json.dumps({key: str(value) for key, value in prepare_swe_v2_profiles().items()}, ensure_ascii=False, indent=2))
     elif args.command == "validate-selection":
@@ -342,6 +344,11 @@ def main(argv: list[str] | None = None) -> int:
     elif args.command == "summarize":
         paths = summarize_runs(args.outputs_dir, args.output_dir, args.profile)
         print(json.dumps({key: str(path) for key, path in paths.items()}, ensure_ascii=False, indent=2))
+    elif args.command == "run-matrix":
+        from .experiment import run_matrix
+        result = run_matrix(args.config, resume=args.resume, report=args.report, dry_run=args.dry_run)
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 1 if result.get("failures") else 0
     return 0
 
 

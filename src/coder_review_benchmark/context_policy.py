@@ -3,13 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import json
-import math
-import re
 from typing import Any
 
-MAX_CONTEXT_TOKENS = 32_768
-OUTPUT_RESERVED_TOKENS = 4_096
-MAX_INPUT_TOKENS = MAX_CONTEXT_TOKENS - OUTPUT_RESERVED_TOKENS
+MAX_INPUT_CHARS = 100_000
 CHAT_TEMPLATE_V1 = "<|im_start|>{role}\n{content}<|im_end|>\n"
 CHAT_TEMPLATE_SHA256 = hashlib.sha256(CHAT_TEMPLATE_V1.encode()).hexdigest()
 
@@ -22,29 +18,13 @@ class ContextResult:
     truncated: bool
     reason: str | None
     sha256: str
-    original_tokens: int
-    final_tokens: int
+    original_tokens: int | None
+    final_tokens: int | None
     template_sha256: str = CHAT_TEMPLATE_SHA256
 
 
 def apply_chat_template(messages: list[dict[str, Any]]) -> str:
     return "".join(CHAT_TEMPLATE_V1.format(role=str(m.get("role", "")), content=str(m.get("content", ""))) for m in messages)
-
-
-def count_tokens(text: str) -> int:
-    """Deterministic tokenizer fallback shared by every model in the fair lane.
-
-    It is deliberately conservative for UTF-8 text and is applied after the
-    benchmark chat template. If a deployment supplies a tokenizer, it may be
-    used for diagnostics, but it must not alter the frozen fair-lane messages.
-    """
-    encoded = text.encode("utf-8")
-    if not encoded:
-        return 0
-    # A conservative byte-BPE approximation: no fewer than one token per four
-    # bytes, plus standalone whitespace/control boundaries.
-    boundaries = len(re.findall(r"\s+", text))
-    return max(1, math.ceil(len(encoded) / 4) + boundaries // 8)
 
 
 def messages_sha256(messages: list[dict[str, Any]]) -> str:
@@ -85,34 +65,21 @@ def _candidate(text: str, diff: str | None, char_budget: int) -> str:
 
 def apply_context(
     text: str,
-    policy: str = "common-32k",
+    policy: str = "common-100k-char-v1",
     *,
     diff: str | None = None,
     system: str = "",
-    max_input_tokens: int = MAX_INPUT_TOKENS,
 ) -> ContextResult:
-    if policy not in {"common-32k", "native-context"}:
-        raise ValueError("context policy must be common-32k or native-context")
+    if policy not in {"common-100k-char-v1", "native-context"}:
+        raise ValueError("context policy must be common-100k-char-v1 or native-context")
     original_chars = len(text)
-    original_tokens = count_tokens(apply_chat_template([{"role": "system", "content": system}, {"role": "user", "content": text}]))
-    if policy == "native-context" or original_tokens <= max_input_tokens:
+    # No model tokenizer is bundled. Token fields therefore remain null and
+    # the fallback protocol is explicitly named and measured in characters.
+    original_tokens = None
+    if policy == "native-context" or original_chars <= MAX_INPUT_CHARS:
         final, reason = text, None
     else:
-        lo, hi = 0, len(text)
-        final = text[:1]
-        while lo <= hi:
-            mid = (lo + hi) // 2
-            candidate = _candidate(text, diff, mid)
-            tokens = count_tokens(apply_chat_template([{"role": "system", "content": system}, {"role": "user", "content": candidate}]))
-            if tokens <= max_input_tokens:
-                final = candidate
-                lo = mid + 1
-            else:
-                hi = mid - 1
-        reason = "common-32k-token-budget"
-    final_tokens = count_tokens(apply_chat_template([{"role": "system", "content": system}, {"role": "user", "content": final}]))
-    # Defensive correction for marker/header edge cases.
-    while policy == "common-32k" and final_tokens > max_input_tokens and final:
-        final = final[:-max(1, len(final) // 100)]
-        final_tokens = count_tokens(apply_chat_template([{"role": "system", "content": system}, {"role": "user", "content": final}]))
+        final = _candidate(text, diff, MAX_INPUT_CHARS)[:MAX_INPUT_CHARS]
+        reason = "common-100k-char-budget"
+    final_tokens = None
     return ContextResult(final, original_chars, len(final), len(final) < original_chars, reason, hashlib.sha256(final.encode()).hexdigest(), original_tokens, final_tokens)

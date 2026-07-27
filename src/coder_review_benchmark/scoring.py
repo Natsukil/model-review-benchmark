@@ -137,11 +137,13 @@ def calculate_martian_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
     f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
     per_pr = [(float(r.get("judge", {}).get("precision", 0.0)), float(r.get("judge", {}).get("recall", 0.0)), float(r.get("judge", {}).get("f1", 0.0))) for r in judged]
     repos: dict[str, list[dict[str, Any]]] = {}
+    languages: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
         url = str(row.get("pr_url", ""))
         match = re.search(r"github\.com/([^/]+/[^/]+)/pull/", url)
         repos.setdefault(match.group(1).lower() if match else "unknown", []).append(row)
-    def repo_metrics(group: list[dict[str, Any]]) -> dict[str, Any]:
+        languages.setdefault(str(row.get("language", "unknown")), []).append(row)
+    def group_metrics(group: list[dict[str, Any]]) -> dict[str, Any]:
         judged_group = [r for r in group if isinstance(r.get("judge"), dict)]
         gtp = sum(int(r.get("judge", {}).get("tp", 0)) for r in judged_group)
         gfp = sum(int(r.get("judge", {}).get("fp", 0)) for r in judged_group)
@@ -150,7 +152,10 @@ def calculate_martian_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
         gp = gtp / (gtp + gfp) if gtp + gfp else 0.0
         gr = gtp / (gtp + gfn) if gtp + gfn else 0.0
         return {"sample_count": len(group), "micro_precision": gp, "micro_recall": gr, "micro_f1": 2 * gp * gr / (gp + gr) if gp + gr else 0.0}
-    return {"sample_count": len(rows), "tp": tp, "fp": fp, "fn": fn, "raw_tp": tp, "raw_fp": fp, "raw_fn": fn, "micro_precision": precision, "micro_recall": recall, "micro_f1": f1, "precision": precision, "recall": recall, "f1": f1, "per_pr_macro_precision": sum(v[0] for v in per_pr) / len(per_pr) if per_pr else 0.0, "per_pr_macro_recall": sum(v[1] for v in per_pr) / len(per_pr) if per_pr else 0.0, "per_pr_macro_f1": sum(v[2] for v in per_pr) / len(per_pr) if per_pr else 0.0, "average_findings": sum(len(r.get("review", {}).get("findings", [])) for r in rows) / len(rows) if rows else 0.0, "zero_finding_prs": sum(not r.get("review", {}).get("findings") for r in rows), "judge_calls": sum(int(r.get("judge", {}).get("judge_calls", 0)) for r in rows if isinstance(r.get("judge"), dict)), "judge_errors": sum(len(r.get("judge", {}).get("errors", [])) for r in rows if isinstance(r.get("judge"), dict)), "judge_error_rate": sum(bool(r.get("judge", {}).get("errors")) for r in rows if isinstance(r.get("judge"), dict)) / len(judged) if judged else 0.0, "unscored_samples": len(rows) - len(judged), "per_repository_metrics": {name: repo_metrics(group) for name, group in sorted(repos.items())}}
+    macro_precision = sum(v[0] for v in per_pr) / len(per_pr) if per_pr else 0.0
+    macro_recall = sum(v[1] for v in per_pr) / len(per_pr) if per_pr else 0.0
+    macro_f1 = sum(v[2] for v in per_pr) / len(per_pr) if per_pr else 0.0
+    return {"sample_count": len(rows), "tp": tp, "fp": fp, "fn": fn, "raw_tp": tp, "raw_fp": fp, "raw_fn": fn, "micro_precision": precision, "micro_recall": recall, "micro_f1": f1, "precision": precision, "recall": recall, "f1": f1, "macro_precision": macro_precision, "macro_recall": macro_recall, "macro_f1": macro_f1, "per_pr_macro_precision": macro_precision, "per_pr_macro_recall": macro_recall, "per_pr_macro_f1": macro_f1, "average_findings": sum(len(r.get("review", {}).get("findings", [])) for r in rows) / len(rows) if rows else 0.0, "zero_finding_prs": sum(not r.get("review", {}).get("findings") for r in rows), "judge_calls": sum(int(r.get("judge", {}).get("judge_calls", 0)) for r in rows if isinstance(r.get("judge"), dict)), "judge_errors": sum(len(r.get("judge", {}).get("errors", [])) for r in rows if isinstance(r.get("judge"), dict)), "judge_error_rate": sum(bool(r.get("judge", {}).get("errors")) for r in rows if isinstance(r.get("judge"), dict)) / len(judged) if judged else 0.0, "unscored_samples": len(rows) - len(judged), "per_repository_metrics": {name: group_metrics(group) for name, group in sorted(repos.items())}, "by_language": {name: group_metrics(group) for name, group in sorted(languages.items())}}
 
 
 def aggregate_counts(rows: list[dict[str, Any]], key: str) -> dict[str, int]:

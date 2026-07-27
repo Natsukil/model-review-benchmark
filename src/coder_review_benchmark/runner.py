@@ -105,7 +105,7 @@ def run_agent_task(
     return {"status": "max_turns", "answer": "", "events": events, "malformed_calls": malformed, "wall_seconds": time.perf_counter() - started}
 
 
-def run_review_task(client: ModelClient, task: dict[str, Any], *, protocol: str = "swe", context_policy: str = "common-32k", adapter: Any | None = None) -> dict[str, Any]:
+def run_review_task(client: ModelClient, task: dict[str, Any], *, protocol: str = "swe", context_policy: str = "common-100k-char-v1", adapter: Any | None = None) -> dict[str, Any]:
     adapter = adapter or (MartianReviewAdapter() if protocol == "martian" else SWEReviewAdapter())
     prepared: ReviewInput = adapter.prepare(task, context_policy)
     max_output = min(getattr(client.profile, "max_output_tokens", 4096), 4096)

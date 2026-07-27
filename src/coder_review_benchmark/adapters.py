@@ -19,8 +19,8 @@ class ReviewInput:
     final_input_chars: int
     truncated: bool
     truncation_reason: str | None
-    original_input_tokens: int
-    final_input_tokens: int
+    original_input_tokens: int | None
+    final_input_tokens: int | None
     template_sha256: str
     user_content_sha256: str
     messages_sha256: str
@@ -69,7 +69,7 @@ class SWEReviewAdapter:
     def prompt_sha256(self) -> str:
         return hashlib.sha256((ROOT / "prompts" / self.prompt_file).read_bytes()).hexdigest()
 
-    def prepare(self, task: dict, context_policy: str = "common-32k") -> ReviewInput:
+    def prepare(self, task: dict, context_policy: str = "common-100k-char-v1") -> ReviewInput:
         issue = str(task.get("problem_statement") or "")
         patch = str(task.get("model_patch") or "")
         if not issue or not patch:
@@ -86,7 +86,7 @@ class MartianReviewAdapter:
     prompt_file = "martian_model_only_v2.txt"
     response_format = MARTIAN_RESPONSE_SCHEMA
 
-    def prepare(self, task: dict, context_policy: str = "common-32k") -> ReviewInput:
+    def prepare(self, task: dict, context_policy: str = "common-100k-char-v1") -> ReviewInput:
         patch = str(task.get("patch") or "")
         if not patch:
             raise ValueError("Martian requires a non-empty PR diff")

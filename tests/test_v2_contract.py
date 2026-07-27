@@ -1,10 +1,10 @@
 import json
 from pathlib import Path
 
-from coder_review_benchmark.adapters import MARTIAN_RESPONSE_SCHEMA, SWE_RESPONSE_SCHEMA, SWEReviewAdapter
+from coder_review_benchmark.adapters import MARTIAN_RESPONSE_SCHEMA, SWE_RESPONSE_SCHEMA, MartianReviewAdapter, SWEReviewAdapter
 from coder_review_benchmark.client import ModelClient
 from coder_review_benchmark.config import ModelProfile
-from coder_review_benchmark.context_policy import MAX_INPUT_TOKENS, apply_context
+from coder_review_benchmark.context_policy import MAX_INPUT_CHARS, apply_context
 from coder_review_benchmark.runner import run_review_task
 from coder_review_benchmark import cli
 
@@ -47,7 +47,8 @@ def test_schemas_and_review_budget_are_fixed():
     assert finding["properties"]["severity"]["enum"] == ["low", "medium", "high", "critical"]
     assert "compatibility" in finding["properties"]["category"]["enum"]
     result = apply_context("ISSUE\n\nDIFF:\n" + "x" * 500_000, diff="x" * 500_000)
-    assert result.final_tokens <= MAX_INPUT_TOKENS == 28672
+    assert result.final_chars <= MAX_INPUT_CHARS == 100000
+    assert result.final_tokens is None
 
 
 def test_review_task_uses_4096_and_records_all_hashes():
@@ -61,7 +62,7 @@ def test_review_task_uses_4096_and_records_all_hashes():
     result = run_review_task(Dummy(), {"problem_statement": "issue", "model_patch": "diff --git a/a b/b\n"})
     for key in ("template_sha256", "user_content_sha256", "messages_sha256"):
         assert len(result[key]) == 64
-    assert result["final_input_tokens"] <= MAX_INPUT_TOKENS
+    assert result["final_input_tokens"] is None
 
 
 def test_three_models_get_identical_frozen_messages():
@@ -69,6 +70,10 @@ def test_three_models_get_identical_frozen_messages():
     prepared = [SWEReviewAdapter().prepare(task) for _ in range(3)]
     assert len({p.messages_sha256 for p in prepared}) == 1
     assert len({json.dumps(p.messages, ensure_ascii=False, sort_keys=True) for p in prepared}) == 1
+    martian_task = {"pr_title": "title", "pr_body": "body", "patch": "diff --git a/a b/b\n"}
+    martian = [MartianReviewAdapter().prepare(martian_task) for _ in range(3)]
+    assert len({p.messages_sha256 for p in martian}) == 1
+    assert len({json.dumps(p.messages, ensure_ascii=False, sort_keys=True) for p in martian}) == 1
 
 
 def test_env_example_has_no_real_hf_credential():
