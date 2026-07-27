@@ -2,8 +2,10 @@ import json
 from pathlib import Path
 
 import pytest
+from openpyxl import load_workbook
 
 import coder_review_benchmark.experiment as experiment_module
+from coder_review_benchmark.client import ModelRequestError
 from coder_review_benchmark.config import ModelProfile
 from coder_review_benchmark.experiment import ExperimentTask, _golden_identity, generate_review_run, judge_martian_run, run_matrix
 
@@ -117,5 +119,58 @@ def test_martian_judge_errors_fail_the_judge_phase(tmp_path):
         def chat(self, messages, **kwargs):
             return {"choices": [{"message": {"content": "not-json"}, "finish_reason": "stop"}], "_request_attempts": 1}, 0.01
 
-    with pytest.raises(RuntimeError, match="scoring is incomplete"):
-        judge_martian_run(run_dir, ExperimentTask("m", "martian", "martian-error"), _profile("judge"), root=tmp_path, client_factory=InvalidJudge)
+    outcome = judge_martian_run(run_dir, ExperimentTask("m", "martian", "martian-error"), _profile("judge"), root=tmp_path, client_factory=InvalidJudge)
+    assert outcome == {"judge_status": "failed", "successful_samples": 0, "failed_samples": 1}
+    metrics = json.loads((run_dir / "metrics.json").read_text(encoding="utf-8"))
+    assert metrics["micro_f1"] is None and metrics["tp"] is None
+
+
+def test_all_http_400_judges_make_experiment_partial_without_valid_f1(tmp_path):
+    martian_dir = tmp_path / "data" / "selections" / "tiny-martian"
+    martian_dir.mkdir(parents=True)
+    records = [
+        {"url": "https://github.com/o/r/pull/10", "comments": [{"comment": "gold 1"}]},
+        {"url": "https://github.com/o/r/pull/11", "comments": [{"comment": "gold 2"}]},
+    ]
+    (martian_dir / "martian.jsonl").write_text("\n".join(json.dumps({"record": record}) for record in records) + "\n", encoding="utf-8")
+    config = tmp_path / "http400.yaml"
+    config.write_text("experiment_id: http400-exp\nmodels:\n  - profile: model\ndatasets:\n  - suite: swe_review\n    profile: tiny-swe\n  - suite: martian\n    profile: tiny-martian\njudge:\n  profile: judge\nlifecycle:\n  enabled: false\n", encoding="utf-8")
+
+    class HTTP400Client:
+        def __init__(self, profile):
+            self.profile = profile
+            self.last_request_attempts = 1
+        def chat(self, messages, **kwargs):
+            if kwargs.get("max_tokens") == 8:
+                return {"choices": [{"message": {"content": "READY"}}]}, 0.01
+            raise ModelRequestError("HTTP 400", status_code=400, response_body='{"error":"schema unsupported"}', attempts=1, elapsed=0.02)
+
+    def task_runner(experiment_dir, experiment_id, task, profile, **kwargs):
+        run_dir = experiment_dir / "runs" / task.id
+        run_dir.mkdir(parents=True)
+        (run_dir / "run_manifest.json").write_text(json.dumps({"experiment_id": experiment_id}), encoding="utf-8")
+        if task.suite == "swe_review":
+            rows = [{"index": 0, "suite": "swe_review", "status": "completed", "review": {"schema_valid": True}}]
+        else:
+            rows = []
+            for index, record in enumerate(records):
+                sample_id, golden_sha = _golden_identity(record)
+                rows.append({"index": index, "suite": "martian", "status": "completed", "sample_id": sample_id, "pr_url": record["url"], "golden_record_sha256": golden_sha, "golden_finding_count": 1, "review": {"parseable": True, "findings": [{"path": "a.py", "line": 1, "severity": "high", "category": "correctness", "description": "candidate"}]}})
+        (run_dir / "results.jsonl").write_text("\n".join(json.dumps(row) for row in rows) + "\n", encoding="utf-8")
+        (run_dir / "metrics.json").write_text(json.dumps({"suite": task.suite, "sample_count": len(rows), "run_errors": 0}), encoding="utf-8")
+        return run_dir
+
+    result = run_matrix(config, root=tmp_path, report=True, profile_loader=_profile, client_factory=HTTP400Client, task_runner=task_runner, validation_fn=lambda profile, suite: {"valid": True, "count": 2})
+    assert result["status"] == "partial"
+    state = json.loads((tmp_path / "outputs" / "experiments" / "http400-exp" / "state.json").read_text(encoding="utf-8"))
+    martian_state = next(task for task in state["tasks"].values() if task["suite"] == "martian")
+    assert martian_state["judge_status"] == "failed"
+    metrics = json.loads((Path(martian_state["run_dir"]) / "metrics.json").read_text(encoding="utf-8"))
+    assert metrics["judge_successful_samples"] == 0 and metrics["judge_failed_samples"] == 2
+    assert metrics["tp"] is None and metrics["micro_f1"] is None
+    report_dir = Path(result["reports"]["directory"])
+    assert "Status: **PARTIAL**" in (report_dir / "report.md").read_text(encoding="utf-8")
+    experiment_sheet = load_workbook(report_dir / "report.xlsx", read_only=True)["Experiment"]
+    values = list(experiment_sheet.values)
+    status_column = values[0].index("status")
+    assert values[1][status_column] == "partial"

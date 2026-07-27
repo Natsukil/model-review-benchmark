@@ -222,7 +222,7 @@ def generate_review_run(
     return run_dir
 
 
-def judge_martian_run(run_dir: Path, task: ExperimentTask, judge_profile: ModelProfile, *, root: Path = ROOT, resume: bool = False, client_factory: Callable[[ModelProfile], Any] = ModelClient) -> None:
+def judge_martian_run(run_dir: Path, task: ExperimentTask, judge_profile: ModelProfile, *, root: Path = ROOT, resume: bool = False, client_factory: Callable[[ModelProfile], Any] = ModelClient) -> dict[str, Any]:
     results_path = run_dir / "results.jsonl"
     rows = [json.loads(line) for line in results_path.read_text(encoding="utf-8").splitlines() if line.strip()]
     source_rows = [json.loads(line) for line in _selection_path(task, root).read_text(encoding="utf-8").splitlines() if line.strip()]
@@ -235,7 +235,7 @@ def judge_martian_run(run_dir: Path, task: ExperimentTask, judge_profile: ModelP
         golden_by_id[sample_id] = (record, record_sha)
     judge = client_factory(judge_profile)
     for row in rows:
-        if resume and isinstance(row.get("judge"), dict) and not row["judge"].get("errors"):
+        if resume and isinstance(row.get("judge"), dict) and row["judge"].get("status") == "completed" and not row["judge"].get("errors"):
             continue
         sample_id = str(row.get("sample_id") or "")
         if not sample_id or sample_id not in golden_by_id:
@@ -248,7 +248,7 @@ def judge_martian_run(run_dir: Path, task: ExperimentTask, judge_profile: ModelP
         try:
             row["judge"] = score_review(row.get("review", {}), record.get("comments") or [], judge)
         except Exception as exc:
-            row["judge"] = {"tp": 0, "fp": len(row.get("review", {}).get("findings", [])), "fn": len(record.get("comments") or []), "precision": 0.0, "recall": 0.0, "f1": 0.0, "matches": [], "errors": [{"error": str(exc), "schema_error": "judge execution failed"}], "judge_calls": 1, "judge_elapsed": 0.0, "elapsed": 0.0, "raw_response": None, "request_attempts": int(getattr(judge, "last_request_attempts", 0) or 0), "finish_reason": None, "schema_error": "judge execution failed"}
+            row["judge"] = {"status": "failed", "matches": [], "errors": [{"error": str(exc), "schema_error": "judge execution failed"}], "judge_calls": 1, "judge_elapsed": float(getattr(exc, "elapsed", 0.0)), "elapsed": float(getattr(exc, "elapsed", 0.0)), "raw_response": getattr(exc, "response_body", None), "response_body": getattr(exc, "response_body", None), "status_code": getattr(exc, "status_code", None), "request_attempts": int(getattr(exc, "attempts", 0) or getattr(judge, "last_request_attempts", 0) or 0), "finish_reason": None, "schema_error": "judge execution failed"}
     temporary = results_path.with_suffix(".jsonl.tmp")
     temporary.write_text("\n".join(json.dumps(row, ensure_ascii=False) for row in rows) + "\n", encoding="utf-8")
     temporary.replace(results_path)
@@ -256,8 +256,7 @@ def judge_martian_run(run_dir: Path, task: ExperimentTask, judge_profile: ModelP
     metrics["judge_elapsed_seconds"] = sum(float(row.get("judge", {}).get("judge_elapsed") or 0.0) for row in rows)
     _write_json(run_dir / "metrics.json", metrics)
     write_report(run_dir)
-    if int(metrics.get("judge_errors") or 0):
-        raise RuntimeError(f"Martian judge recorded {metrics['judge_errors']} error(s); scoring is incomplete")
+    return {"judge_status": metrics["judge_status"], "successful_samples": metrics["judge_successful_samples"], "failed_samples": metrics["judge_failed_samples"]}
 
 
 def _model_entry(config: dict[str, Any], model_id: str) -> dict[str, Any]:
@@ -286,7 +285,7 @@ def run_matrix(
     profile_loader: Callable[[str], ModelProfile] = get_model_profile,
     client_factory: Callable[[ModelProfile], Any] = ModelClient,
     task_runner: Callable[..., Path] = generate_review_run,
-    judge_runner: Callable[..., None] = judge_martian_run,
+    judge_runner: Callable[..., Any] = judge_martian_run,
     validation_fn: Callable[[str, str], dict[str, Any]] = validate_selection,
     report_runner: Callable[..., dict[str, Path]] = generate_experiment_report,
 ) -> dict[str, Any]:
@@ -397,8 +396,14 @@ def run_matrix(
             for task in martian_tasks:
                 task_state = state["tasks"][task.id]
                 try:
-                    judge_runner(Path(task_state["run_dir"]), task, judge_profile, root=root, resume=resume, client_factory=client_factory)
-                    task_state["judge_status"] = "completed"
+                    outcome = judge_runner(Path(task_state["run_dir"]), task, judge_profile, root=root, resume=resume, client_factory=client_factory)
+                    judge_status = str(outcome.get("judge_status", "completed")) if isinstance(outcome, dict) else "completed"
+                    if judge_status not in {"completed", "partial", "failed"}:
+                        raise RuntimeError(f"invalid judge status: {judge_status}")
+                    task_state["judge_status"] = judge_status
+                    task_state["judge_error"] = None if judge_status == "completed" else f"Martian judge status is {judge_status}"
+                    if judge_status != "completed":
+                        failures.append(f"judge:{task.id}")
                 except Exception as exc:
                     task_state["judge_status"] = "failed"
                     task_state["judge_error"] = str(exc)
@@ -417,7 +422,8 @@ def run_matrix(
                 except Exception as exc: failures.append("unload:judge")
 
     state["failures"] = sorted(set(failures))
-    state["status"] = "failed" if state["failures"] else "completed"
+    useful_results = any(task.get("status") == "completed" and (task.get("suite") != "martian" or task.get("judge_status") in {"completed", "partial"}) for task in state["tasks"].values())
+    state["status"] = "completed" if not state["failures"] else ("partial" if useful_results else "failed")
     state["finished_at"] = time.time()
     _write_json(state_path, state)
     report_paths = report_runner(experiment_dir) if report else {}

@@ -11,10 +11,15 @@ from .config import ModelProfile
 
 
 class ModelRequestError(RuntimeError):
-    def __init__(self, message: str, *, raw_response: str | None, request_attempts: int):
+    def __init__(self, message: str, *, status_code: int | None, response_body: str | None, attempts: int, elapsed: float):
         super().__init__(message)
-        self.raw_response = raw_response
-        self.request_attempts = request_attempts
+        self.status_code = status_code
+        self.response_body = response_body
+        self.attempts = attempts
+        self.elapsed = elapsed
+        # Compatibility aliases for older result readers.
+        self.raw_response = response_body
+        self.request_attempts = attempts
 
 
 class ModelClient:
@@ -82,11 +87,11 @@ class ModelClient:
                     except Exception:
                         detail = ""
                     suffix = f": {detail}" if detail else ""
-                    raise ModelRequestError(f"model request failed after {attempt + 1} attempt(s): HTTP {exc.code}{suffix}", raw_response=detail or None, request_attempts=attempt + 1) from exc
+                    raise ModelRequestError(f"model request failed after {attempt + 1} attempt(s): HTTP {exc.code}{suffix}", status_code=exc.code, response_body=detail or None, attempts=attempt + 1, elapsed=time.perf_counter() - started) from exc
             except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
                 last_error = exc
                 if attempt >= self.max_retries:
-                    raise ModelRequestError(f"model request failed after {attempt + 1} attempt(s): {exc}", raw_response=None, request_attempts=attempt + 1) from exc
+                    raise ModelRequestError(f"model request failed after {attempt + 1} attempt(s): {exc}", status_code=None, response_body=None, attempts=attempt + 1, elapsed=time.perf_counter() - started) from exc
             time.sleep(min(2 ** attempt, 8))
         else:  # pragma: no cover - defensive; the loop always returns or raises
             raise RuntimeError(f"model request failed: {last_error}")

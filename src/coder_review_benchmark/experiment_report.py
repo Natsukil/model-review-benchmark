@@ -58,13 +58,22 @@ def _write_excel(path: Path, summary_rows: list[dict[str, Any]], sample_rows: li
     workbook.save(path)
 
 
-def _report_status(rows: list[dict[str, Any]]) -> str:
-    failed = [row for row in rows if row.get("status") != "completed" or (row.get("suite") == "martian" and row.get("judge_status") != "completed")]
-    completed = [row for row in rows if row not in failed]
-    if failed and not completed:
+def _row_status(row: dict[str, Any]) -> str:
+    if row.get("status") != "completed":
         return "failed"
-    if failed:
+    if row.get("suite") == "martian":
+        return str(row.get("judge_status") or "failed")
+    return "completed"
+
+
+def _report_status(rows: list[dict[str, Any]]) -> str:
+    statuses = [_row_status(row) for row in rows]
+    if "partial" in statuses:
         return "partial"
+    if "failed" in statuses and "completed" in statuses:
+        return "partial"
+    if statuses and all(status == "failed" for status in statuses):
+        return "failed"
     return "completed"
 
 
@@ -175,6 +184,7 @@ def generate_experiment_report(experiment_dir: Path, output_dir: Path | None = N
                 sample = {"task_id": task_id, "model_profile": task.get("model_profile"), "dataset_profile": task.get("dataset_profile"), **row}
                 bucket["samples"].append(sample)
                 all_samples.append(sample)
+        entry["effective_status"] = _row_status({"suite": suite, **entry})
         bucket["runs"].append(entry)
         all_summary.append({"suite": suite, **entry})
 
@@ -195,7 +205,7 @@ def generate_experiment_report(experiment_dir: Path, output_dir: Path | None = N
         lines = [f"# {suite} report", "", f"Experiment: `{experiment_id}`", "", f"Status: **{suite_status.upper()}**", "", "| Model | Dataset | Status | Samples | " + " | ".join(headers) + " |", "|---|---|---|---:|" + "---:|" * len(fields)]
         for row in data["runs"]:
             values = [_format_metric(key, row.get(key)) for key, _ in fields]
-            lines.append(f"| {row.get('model_profile')} | {row.get('dataset_profile')} | {row.get('status')} | {row.get('sample_count', 0)} | " + " | ".join(values) + " |")
+            lines.append(f"| {row.get('model_profile')} | {row.get('dataset_profile')} | {_row_status({'suite': suite, **row})} | {row.get('sample_count', 0)} | " + " | ".join(values) + " |")
         lines.extend(["", "Breakdowns and complete per-sample records are included in `report.json`, `metrics.csv`, `per_sample.csv`, and `report.xlsx`."])
         (suite_dir / "report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -209,7 +219,7 @@ def generate_experiment_report(experiment_dir: Path, output_dir: Path | None = N
     _write_complete_excel(output_dir / "report.xlsx", experiment_id, report_status, state, all_summary, all_samples, manifests, judge_manifest)
     md_lines = ["# Model Review Benchmark experiment", "", f"Experiment: `{experiment_id}`", "", f"Status: **{report_status.upper()}**", "", "| Suite | Model | Dataset | Status | Samples | Errors |", "|---|---|---|---|---:|---:|"]
     for row in all_summary:
-        md_lines.append(f"| {row.get('suite')} | {row.get('model_profile')} | {row.get('dataset_profile')} | {row.get('status')} | {row.get('sample_count', 0)} | {row.get('run_errors', 0)} |")
+        md_lines.append(f"| {row.get('suite')} | {row.get('model_profile')} | {row.get('dataset_profile')} | {_row_status(row)} | {row.get('sample_count', 0)} | {row.get('run_errors', 0)} |")
     markdown_path = output_dir / "report.md"
     markdown_path.write_text("\n".join(md_lines) + "\n", encoding="utf-8")
     return {"markdown": markdown_path, "json": json_path, "csv": output_dir / "report.csv", "excel": output_dir / "report.xlsx", "directory": output_dir}

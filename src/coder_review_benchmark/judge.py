@@ -100,6 +100,22 @@ def _response_metadata(response: dict[str, Any], elapsed: float, raw: str) -> di
         "finish_reason": choice.get("finish_reason") if isinstance(choice, dict) else None,
         "elapsed": elapsed,
         "schema_error": None,
+        "status_code": 200,
+        "response_body": raw,
+    }
+
+
+def _failure_metadata(exc: Exception, fallback_elapsed: float, judge: ModelClient) -> dict[str, Any]:
+    body = getattr(exc, "response_body", getattr(exc, "raw_response", None))
+    return {
+        "status": "failed",
+        "raw_response": body,
+        "response_body": body,
+        "status_code": getattr(exc, "status_code", None),
+        "request_attempts": int(getattr(exc, "attempts", 0) or getattr(exc, "request_attempts", 0) or getattr(judge, "last_request_attempts", 0) or 0),
+        "finish_reason": None,
+        "elapsed": float(getattr(exc, "elapsed", fallback_elapsed)),
+        "schema_error": "judge request failed",
     }
 
 
@@ -115,17 +131,18 @@ def match_finding(judge: ModelClient, golden: str, candidate: str) -> dict[str, 
             response_format=MATCH_RESPONSE_SCHEMA,
         )
     except Exception as exc:
-        return {"error": str(exc), "raw_response": getattr(exc, "raw_response", None), "request_attempts": int(getattr(exc, "request_attempts", 0) or getattr(judge, "last_request_attempts", 0) or 0), "finish_reason": None, "elapsed": time.perf_counter() - started, "schema_error": "judge request failed"}
+        return {"error": str(exc), **_failure_metadata(exc, time.perf_counter() - started, judge)}
     raw = _content(response)
     metadata = _response_metadata(response, elapsed, raw)
     parsed = parse_json_object(raw)
     if not parsed or not isinstance(parsed.get("match"), bool):
         metadata["schema_error"] = "judge returned invalid JSON or schema"
-        return {"error": metadata["schema_error"], **metadata}
+        return {"error": metadata["schema_error"], "status": "failed", **metadata}
     return {
         "match": parsed["match"],
         "confidence": float(parsed.get("confidence", 0.0)),
         "reasoning": str(parsed.get("reasoning", "")),
+        "status": "completed",
         **metadata,
     }
 
@@ -146,7 +163,8 @@ def finding_text(finding: dict[str, Any]) -> str:
 def score_review(review: dict[str, Any], golden_comments: list[dict[str, Any]], judge: ModelClient) -> dict[str, Any]:
     findings = review.get("findings", []) if review.get("parseable") else []
     candidates = [finding_text(item) for item in findings]
-    empty = {
+    completed_empty = {
+        "status": "completed",
         "tp": 0,
         "fp": len(candidates),
         "fn": len(golden_comments),
@@ -159,7 +177,7 @@ def score_review(review: dict[str, Any], golden_comments: list[dict[str, Any]], 
         "judge_elapsed": 0.0,
     }
     if not golden_comments or not candidates:
-        return empty
+        return completed_empty
 
     goldens = [str(item.get("comment", "")) for item in golden_comments]
     started = time.perf_counter()
@@ -179,18 +197,14 @@ def score_review(review: dict[str, Any], golden_comments: list[dict[str, Any]], 
             response_format=BATCH_MATCH_RESPONSE_SCHEMA,
         )
     except Exception as exc:
-        empty.update({"errors": [{"error": str(exc), "schema_error": "judge request failed"}], "judge_calls": 1, "raw_response": getattr(exc, "raw_response", None), "request_attempts": int(getattr(exc, "request_attempts", 0) or getattr(judge, "last_request_attempts", 0) or 0), "finish_reason": None, "judge_elapsed": time.perf_counter() - started, "elapsed": time.perf_counter() - started, "schema_error": "judge request failed"})
-        return empty
+        metadata = _failure_metadata(exc, time.perf_counter() - started, judge)
+        return {"status": "failed", "matches": [], "errors": [{"error": str(exc), "schema_error": metadata["schema_error"]}], "judge_calls": 1, "judge_elapsed": metadata["elapsed"], **metadata}
     raw = _content(response)
     metadata = _response_metadata(response, elapsed, raw)
     parsed = parse_json_object(raw)
     if not parsed or not isinstance(parsed.get("matches"), list):
         metadata["schema_error"] = "judge returned invalid batch JSON or schema"
-        empty["errors"] = [{"error": metadata["schema_error"], "raw_response": raw}]
-        empty["judge_calls"] = 1
-        empty["judge_elapsed"] = elapsed
-        empty.update(metadata)
-        return empty
+        return {"status": "failed", "matches": [], "errors": [{"error": metadata["schema_error"], "raw_response": raw}], "judge_calls": 1, "judge_elapsed": elapsed, **metadata}
 
     matches: list[dict[str, Any]] = []
     matched_candidates: set[int] = set()
@@ -226,6 +240,8 @@ def score_review(review: dict[str, Any], golden_comments: list[dict[str, Any]], 
     if errors:
         for error in errors:
             error.setdefault("raw", raw)
+        metadata["schema_error"] = "judge response contained invalid or non-unique matches"
+        return {"status": "failed", "matches": [], "errors": errors, "judge_calls": 1, "judge_elapsed": elapsed, **metadata}
 
     tp = len(matches)
     fp = len(candidates) - tp
@@ -234,6 +250,7 @@ def score_review(review: dict[str, Any], golden_comments: list[dict[str, Any]], 
     recall = tp / len(golden_comments) if golden_comments else 0.0
     f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
     return {
+        "status": "completed",
         "tp": tp,
         "fp": fp,
         "fn": fn,

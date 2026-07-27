@@ -111,7 +111,7 @@ def test_failed_task_is_reported_and_does_not_stop_remaining_matrix(tmp_path):
     events = []
     failed = f"{MODELS[1]}__martian__martian-offline-50-v1"
     result = run_matrix(_config(tmp_path / "matrix.yaml", "failed-exp"), root=tmp_path, report=True, profile_loader=_profile, client_factory=FakeClient, task_runner=_fake_task_runner(events, fail_task=failed), judge_runner=_fake_judge(events), validation_fn=_valid)
-    assert result["status"] == "failed"
+    assert result["status"] == "partial"
     assert failed in result["failures"]
     assert len([event for event in events if event[0] == "generate"]) == 6
     report = json.loads(Path(result["reports"]["json"]).read_text(encoding="utf-8"))

@@ -57,8 +57,8 @@ def test_score_review_rejects_duplicate_batch_matches():
         [{"comment": "first issue"}, {"comment": "second issue"}],
         DuplicateJudge(),
     )
-    assert result["tp"] == 1
-    assert result["fn"] == 1
+    assert result["status"] == "failed"
+    assert "tp" not in result and "f1" not in result
     assert result["errors"][0]["error"] == "judge returned a non-unique match"
 
 
@@ -75,3 +75,5 @@ def test_judge_schema_failure_preserves_diagnostics():
     assert result["finish_reason"] == "stop"
     assert result["elapsed"] == 0.02
     assert result["schema_error"]
+    assert result["status"] == "failed"
+    assert "tp" not in result and "f1" not in result

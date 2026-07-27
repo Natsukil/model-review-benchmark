@@ -127,15 +127,24 @@ def _group_swe(rows: list[dict[str, Any]], key: str) -> dict[str, Any]:
 
 
 def calculate_martian_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    judged = [r for r in rows if isinstance(r.get("judge"), dict)]
-    tp = sum(int(r.get("judge", {}).get("tp", 0)) for r in judged)
-    fp = sum(int(r.get("judge", {}).get("fp", 0)) for r in judged)
-    fn = sum(int(r.get("judge", {}).get("fn", 0)) for r in judged)
-    fn += sum(int(r.get("golden_finding_count", 0)) for r in rows if not isinstance(r.get("judge"), dict))
-    precision = tp / (tp + fp) if tp + fp else 0.0
-    recall = tp / (tp + fn) if tp + fn else 0.0
-    f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
-    per_pr = [(float(r.get("judge", {}).get("precision", 0.0)), float(r.get("judge", {}).get("recall", 0.0)), float(r.get("judge", {}).get("f1", 0.0))) for r in judged]
+    successful = [r for r in rows if isinstance(r.get("judge"), dict) and r["judge"].get("status") == "completed" and not r["judge"].get("errors")]
+    failed = [r for r in rows if isinstance(r.get("judge"), dict) and (r["judge"].get("status") == "failed" or bool(r["judge"].get("errors")))]
+    pending = [r for r in rows if r not in successful and r not in failed]
+    if failed and successful:
+        judge_status = "partial"
+    elif failed:
+        judge_status = "failed"
+    elif pending:
+        judge_status = "partial" if successful else "failed"
+    else:
+        judge_status = "completed"
+    tp = sum(int(r["judge"]["tp"]) for r in successful)
+    fp = sum(int(r["judge"]["fp"]) for r in successful)
+    fn = sum(int(r["judge"]["fn"]) for r in successful)
+    precision = tp / (tp + fp) if successful and tp + fp else (0.0 if successful else None)
+    recall = tp / (tp + fn) if successful and tp + fn else (0.0 if successful else None)
+    f1 = 2 * precision * recall / (precision + recall) if successful and precision is not None and recall is not None and precision + recall else (0.0 if successful else None)
+    per_pr = [(float(r["judge"]["precision"]), float(r["judge"]["recall"]), float(r["judge"]["f1"])) for r in successful]
     repos: dict[str, list[dict[str, Any]]] = {}
     languages: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
@@ -144,18 +153,19 @@ def calculate_martian_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
         repos.setdefault(match.group(1).lower() if match else "unknown", []).append(row)
         languages.setdefault(str(row.get("language", "unknown")), []).append(row)
     def group_metrics(group: list[dict[str, Any]]) -> dict[str, Any]:
-        judged_group = [r for r in group if isinstance(r.get("judge"), dict)]
-        gtp = sum(int(r.get("judge", {}).get("tp", 0)) for r in judged_group)
-        gfp = sum(int(r.get("judge", {}).get("fp", 0)) for r in judged_group)
-        gfn = sum(int(r.get("judge", {}).get("fn", 0)) for r in judged_group)
-        gfn += sum(int(r.get("golden_finding_count", 0)) for r in group if not isinstance(r.get("judge"), dict))
-        gp = gtp / (gtp + gfp) if gtp + gfp else 0.0
-        gr = gtp / (gtp + gfn) if gtp + gfn else 0.0
-        return {"sample_count": len(group), "micro_precision": gp, "micro_recall": gr, "micro_f1": 2 * gp * gr / (gp + gr) if gp + gr else 0.0}
+        judged_group = [r for r in group if r in successful]
+        failed_group = [r for r in group if r in failed]
+        gtp = sum(int(r["judge"]["tp"]) for r in judged_group)
+        gfp = sum(int(r["judge"]["fp"]) for r in judged_group)
+        gfn = sum(int(r["judge"]["fn"]) for r in judged_group)
+        gp = gtp / (gtp + gfp) if judged_group and gtp + gfp else (0.0 if judged_group else None)
+        gr = gtp / (gtp + gfn) if judged_group and gtp + gfn else (0.0 if judged_group else None)
+        gf1 = 2 * gp * gr / (gp + gr) if judged_group and gp is not None and gr is not None and gp + gr else (0.0 if judged_group else None)
+        return {"sample_count": len(group), "judge_successful_samples": len(judged_group), "judge_failed_samples": len(failed_group), "micro_precision": gp, "micro_recall": gr, "micro_f1": gf1}
     macro_precision = sum(v[0] for v in per_pr) / len(per_pr) if per_pr else 0.0
     macro_recall = sum(v[1] for v in per_pr) / len(per_pr) if per_pr else 0.0
     macro_f1 = sum(v[2] for v in per_pr) / len(per_pr) if per_pr else 0.0
-    return {"sample_count": len(rows), "tp": tp, "fp": fp, "fn": fn, "raw_tp": tp, "raw_fp": fp, "raw_fn": fn, "micro_precision": precision, "micro_recall": recall, "micro_f1": f1, "precision": precision, "recall": recall, "f1": f1, "macro_precision": macro_precision, "macro_recall": macro_recall, "macro_f1": macro_f1, "per_pr_macro_precision": macro_precision, "per_pr_macro_recall": macro_recall, "per_pr_macro_f1": macro_f1, "average_findings": sum(len(r.get("review", {}).get("findings", [])) for r in rows) / len(rows) if rows else 0.0, "zero_finding_prs": sum(not r.get("review", {}).get("findings") for r in rows), "judge_calls": sum(int(r.get("judge", {}).get("judge_calls", 0)) for r in rows if isinstance(r.get("judge"), dict)), "judge_errors": sum(len(r.get("judge", {}).get("errors", [])) for r in rows if isinstance(r.get("judge"), dict)), "judge_error_rate": sum(bool(r.get("judge", {}).get("errors")) for r in rows if isinstance(r.get("judge"), dict)) / len(judged) if judged else 0.0, "unscored_samples": len(rows) - len(judged), "per_repository_metrics": {name: group_metrics(group) for name, group in sorted(repos.items())}, "by_language": {name: group_metrics(group) for name, group in sorted(languages.items())}}
+    return {"sample_count": len(rows), "judge_status": judge_status, "judge_successful_samples": len(successful), "judge_failed_samples": len(failed), "judge_pending_samples": len(pending), "scored_sample_count": len(successful), "tp": tp if successful else None, "fp": fp if successful else None, "fn": fn if successful else None, "raw_tp": tp if successful else None, "raw_fp": fp if successful else None, "raw_fn": fn if successful else None, "micro_precision": precision, "micro_recall": recall, "micro_f1": f1, "precision": precision, "recall": recall, "f1": f1, "macro_precision": macro_precision if successful else None, "macro_recall": macro_recall if successful else None, "macro_f1": macro_f1 if successful else None, "per_pr_macro_precision": macro_precision if successful else None, "per_pr_macro_recall": macro_recall if successful else None, "per_pr_macro_f1": macro_f1 if successful else None, "average_findings": sum(len(r.get("review", {}).get("findings", [])) for r in rows) / len(rows) if rows else 0.0, "zero_finding_prs": sum(not r.get("review", {}).get("findings") for r in rows), "judge_calls": sum(int(r.get("judge", {}).get("judge_calls", 0)) for r in rows if isinstance(r.get("judge"), dict)), "judge_errors": sum(len(r.get("judge", {}).get("errors", [])) for r in failed), "judge_error_rate": len(failed) / (len(successful) + len(failed)) if successful or failed else 0.0, "unscored_samples": len(rows) - len(successful), "per_repository_metrics": {name: group_metrics(group) for name, group in sorted(repos.items())}, "by_language": {name: group_metrics(group) for name, group in sorted(languages.items())}}
 
 
 def aggregate_counts(rows: list[dict[str, Any]], key: str) -> dict[str, int]:

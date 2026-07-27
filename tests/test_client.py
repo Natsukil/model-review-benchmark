@@ -47,5 +47,7 @@ def test_http_error_preserves_raw_response_and_attempt_count(monkeypatch):
     monkeypatch.setattr("urllib.request.urlopen", fail)
     with pytest.raises(ModelRequestError) as caught:
         ModelClient(profile).chat([{"role": "user", "content": "x"}])
-    assert caught.value.raw_response == '{"error":"unsupported schema"}'
-    assert caught.value.request_attempts == 1
+    assert caught.value.status_code == 400
+    assert caught.value.response_body == '{"error":"unsupported schema"}'
+    assert caught.value.attempts == 1
+    assert caught.value.elapsed >= 0
